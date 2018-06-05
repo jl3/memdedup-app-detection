@@ -1,7 +1,9 @@
-
 /*
- * Reads a file to a buffer and then continues to run until terminated
- * code taken from http://stackoverflow.com/questions/140029524/c-programming-how-to-read-the-whole-file-contents-into-a-buffer
+ * Reads a file to a buffer and then continues to run until terminated by pressing a key.
+ *
+ * Usage: loadfile <file>
+ *
+ * Author: Jens Lindemann
  */
 
 #include <stdio.h>
@@ -19,6 +21,8 @@ int main(int argc, char **argv) {
 	} else {
 		filename = "random.dat";
 	}
+
+	// uses code for loading files into memory from http://stackoverflow.com/questions/140029524/c-programming-how-to-read-the-whole-file-contents-into-a-buffer
 	FILE *fp = fopen(filename, "r");
 	if(fp != NULL) {
 		/* Go to the end of the file. */
