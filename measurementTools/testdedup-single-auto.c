@@ -58,8 +58,6 @@ int main(int argc, char **argv) {
 			size_t newLen = fread(filemem, sizeof(char), bufsize, fp);
 			if(newLen == 0) {
 				fputs("Error reading file", stderr);
-			} else {
-				//source[newLen] = '\0' ; /* Just to be safe. */
 			}
 		}
 		fclose(fp);
