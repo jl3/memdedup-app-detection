@@ -15,7 +15,7 @@
 #include <time.h>
 
 int main(int argc, char **argv) {
-	char *source = NULL;
+	char *filemem = NULL;
 	char *filename;
 	char *filename2;
 	long bufsize = 0;
@@ -36,18 +36,21 @@ int main(int argc, char **argv) {
 			bufsize = ftell(fp);
 			if(bufsize == -1) { /* Error */ }
 
-			/* Allocate our buffer to that size. */
-			source = malloc(sizeof(char) * (bufsize +1));
+			/* Allocate page-aligned buffer */
+			int maret = posix_memalign((void **)&filemem, sysconf(_SC_PAGESIZE), bufsize);
+
+			if(maret!=0) {
+				// TODO error handling
+				return 1;
+			}
 
 			/* Go back to the start of the file. */
 			if(fseek(fp, 0L, SEEK_SET) != 0) { /* Error */ }
 
 			/* Read the entire file into memory. */
-			size_t newLen = fread(source, sizeof(char), bufsize, fp);
+			size_t newLen = fread(filemem, sizeof(char), bufsize, fp);
 			if(newLen == 0) {
 				fputs("Error reading file", stderr);
-			} else {
-				source[newLen] = '\0' ; /* Just to be safe. */
 			}
 		}
 		fclose(fp);
@@ -59,22 +62,22 @@ int main(int argc, char **argv) {
 		FILE *fp2 = fopen(filename2, "r");
 		if(fp2 != NULL) {
 			clock_gettime(CLOCK_MONOTONIC, &starttime);
-			size_t newLen = fread(source, sizeof(char), bufsize, fp2);
+			size_t newLen = fread(filemem, sizeof(char), bufsize, fp2);
 			clock_gettime(CLOCK_MONOTONIC, &endtime);
 
 			if(newLen == 0) {
 				fputs("Error reading file 2", stderr);
 			} else {
-				source[newLen] = '\0';
+				filemem[newLen] = '\0';
 			}
 		}
 		fclose(fp2);
 
 		// Calculate and display time needed for writing to memory
-		uint64_t timeNeeded = ((endtime.tv_sec * 1000000000) + endtime.tv_nsec) - ((starttime.tv_sec * 1000000000) + starttime.tv_nsec);
-		printf("Time: %i ns\n", timeNeeded);
+		uint64_t timediff = ((endtime.tv_sec * 1000000000) + endtime.tv_nsec) - ((starttime.tv_sec * 1000000000) + starttime.tv_nsec);
+		printf("Time: %i ns\n", timediff);
 
-		memset(source, 0, bufsize); // Nullify source
-		free(source);
+		memset(filemem, 0, bufsize); // Nullify source
+		free(filemem);
 	}
 }
