@@ -43,9 +43,6 @@ int main(int argc, char **argv) {
 			bufsize = ftell(fp);
 			if(bufsize == -1) { /* Error */ }
 
-			/* Allocate our buffer to that size. */
-			//filemem = malloc(sizeof(char) * (bufsize));
-
 			/* Allocate page-aligned buffer */
 			int maret = posix_memalign((void **)&filemem, sysconf(_SC_PAGESIZE), bufsize);
 
