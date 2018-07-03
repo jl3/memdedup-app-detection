@@ -62,7 +62,6 @@ int main(int argc, char **argv) {
 		}
 		fclose(fp);
 
-		//getchar(); // Wait for input before continuing...
 		sleep(interval);
 
 		struct timespec starttime, endtime;
