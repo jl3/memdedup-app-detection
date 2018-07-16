@@ -1,7 +1,7 @@
 /*
  * Reads file1 to a buffer. After the specified amount of time has passed, file1 is overwritten by file2. The time to complete the overwrite operation is measured and logged into a log file.
  *
- * Usage: testdedup-single-auto <wait> <file1> <file2> <logfile>
+ * Usage: testdedup-single-auto <wait> <file1> <file2> <logfile> [offset]
  *
  * Author: Jens Lindemann
  */
@@ -23,11 +23,16 @@ int main(int argc, char **argv) {
 	char *logfilename;
 	unsigned int interval;
 	long bufsize = 0;
+	long offset = 0;
+	// TODO implement argument parsing using argp/getopt
 	if(argc >= 5) {
 		interval = atoi(argv[1]);
 		filename = argv[2];
 		filename2 = argv[3];
 		logfilename = argv[4];
+		if(argc >= 6) {
+			offset = atol(argv[5]);
+		}
 	} else {
 		filename = "random.dat";
 		filename2 = "random2.dat";
@@ -42,6 +47,7 @@ int main(int argc, char **argv) {
 			/* Get the size of the file. */
 			bufsize = ftell(fp);
 			if(bufsize == -1) { /* Error */ }
+			bufsize -= offset; // offset bytes will not be loaded
 
 			/* Allocate page-aligned buffer */
 			int maret = posix_memalign((void **)&filemem, sysconf(_SC_PAGESIZE), bufsize);
@@ -52,7 +58,10 @@ int main(int argc, char **argv) {
 			}
 
 			/* Go back to the start of the file. */
-			if(fseek(fp, 0L, SEEK_SET) != 0) { /* Error */ }
+			if(fseek(fp, offset, SEEK_SET) != 0) { 
+				// TODO error handling
+				return 1;
+			}
 
 			/* Read the entire file into memory. */
 			size_t newLen = fread(filemem, sizeof(char), bufsize, fp);
@@ -68,6 +77,12 @@ int main(int argc, char **argv) {
 
 		FILE *fp2 = fopen(filename2, "r");
 		if(fp2 != NULL) {
+			/* Move the pointer to the specified offset. */
+			if(fseek(fp2, offset, SEEK_SET) != 0) { 
+				// TODO error handling
+				return 1;
+			}
+
 			clock_gettime(CLOCK_MONOTONIC, &starttime);
 			size_t newLen = fread(filemem, sizeof(char), bufsize, fp2);
 			clock_gettime(CLOCK_MONOTONIC, &endtime);

@@ -1,7 +1,7 @@
 /*
  * Reads a file to a buffer and then continues to run until terminated by pressing a key.
  *
- * Usage: loadfile <file>
+ * Usage: loadfile <file> [offset]
  *
  * Author: Jens Lindemann
  */
@@ -13,11 +13,15 @@
 #include <string.h>
 
 int main(int argc, char **argv) {
-	char *source = NULL;
+	char *filemem = NULL;
 	char *filename;
 	long bufsize = 0;
+	long offset = 0;
 	if(argc >= 2) {
 		filename = argv[1];
+		if(argc >= 3) {
+			offset = atol(argv[2]);
+		}
 	} else {
 		filename = "random.dat";
 	}
@@ -30,27 +34,33 @@ int main(int argc, char **argv) {
 			/* Get the size of the file. */
 			bufsize = ftell(fp);
 			if(bufsize == -1) { /* Error */ }
+			bufsize -= offset; // offset bytes will not be loaded
 
 			/* Allocate our buffer to that size. */
-			source = malloc(sizeof(char) * (bufsize));
-			// was originally bufsize+1, but we do not want an extra 0 byte...
+			int maret = posix_memalign((void **)&filemem, sysconf(_SC_PAGESIZE), bufsize);
 
-			/* Go back to the start of the file. */
-			if(fseek(fp, 0L, SEEK_SET) != 0) { /* Error */ }
+			if(maret!=0) {
+				// TODO error handling
+				return 1;
+			}
+
+			/* Go back to the start of the file, taking the offset into account. */
+			if(fseek(fp, offset, SEEK_SET) != 0) { 
+				// TODO error handling
+				return 1;
+			}
 
 			/* Read the entire file into memory. */
-			size_t newLen = fread(source, sizeof(char), bufsize, fp);
+			size_t newLen = fread(filemem, sizeof(char), bufsize, fp);
 			if(newLen == 0) {
 				fputs("Error reading file", stderr);
-			} else {
-				//source[++newLen] = '\0' ; /* Just to be safe. */
 			}
 		}
 		fclose(fp);
 
 		getchar(); // Wait for input before continuing...
 
-		memset(&source, 0, strlen(source)); // Nullify source
-		free(source);
+		memset(&filemem, 0, strlen(filemem)); // Overwrite file memory
+		free(filemem);
 	}
 }
