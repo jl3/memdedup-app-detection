@@ -21,22 +21,52 @@ int main(int argc, char **argv) {
 	char *filename;
 	char *filename2;
 	char *logfilename;
-	unsigned int interval;
+	unsigned int interval = 0;
 	long bufsize = 0;
 	long offset = 0;
 	bool cache = false;
-	// TODO implement argument parsing using argp/getopt
-	if(argc >= 5) {
-		interval = atoi(argv[1]);
-		filename = argv[2];
-		filename2 = argv[3];
-		logfilename = argv[4];
-		if(argc >= 6) {
-			offset = atol(argv[5]);
+
+	while((c = getopt(argc, argv, "1:2:i:l:o:c")) != -1) {
+		switch(c) {
+			case '1':
+				filename = optarg;
+				break;
+			case '2':
+				filename2 = optarg;
+				break;
+			case 'i':
+				interval = atoi(optarg);
+				break;
+			case 'l':
+				logfilename = optarg;
+				break;
+			case 'o':
+				offset = atol(optarg);
+				break;
+			case 'c':
+				cache = true;
+				break;
+			case '?':
+				// TODO error messages for improper use
+				return 1;
+			default:
+				// TODO proper error handling
+				return 1;
 		}
-	} else {
-		filename = "random.dat";
-		filename2 = "random2.dat";
+	}
+
+	// Check for presence of parameters. Set defaults/print error.
+	if(!filename) {
+		fprintf(stederr, "Error: Argument -1 is required.");
+		return 1;
+	}
+
+	if(!filename2) {
+		fprintf(stederr, "Error: Argument -2 is required.");
+		return 1;
+	}
+
+	if(!logfilename) {
 		logfilename = "testdedup.log";
 	}
 
