@@ -1,8 +1,6 @@
 /*
  * Reads file1 to a buffer. After the specified amount of time has passed, file1 is overwritten by file2. The time to complete the overwrite operation is measured and logged into a log file.
  *
- * Usage: testdedup-single-auto <wait> <file1> <file2> <logfile> [offset]
- *
  * Author: Jens Lindemann
  */
 
