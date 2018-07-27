@@ -107,8 +107,6 @@ int main(int argc, char **argv) {
 
 		FILE *fp2 = fopen(filename2, "r");
 		if(fp2 != NULL) {
-
-
 			if(cache) {
 				// Move to beginning of file
 				if(fseek(fp2, 0, SEEK_SET) != 0) {
