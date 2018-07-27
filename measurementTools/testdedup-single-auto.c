@@ -24,6 +24,7 @@ int main(int argc, char **argv) {
 	unsigned int interval;
 	long bufsize = 0;
 	long offset = 0;
+	bool cache = false;
 	// TODO implement argument parsing using argp/getopt
 	if(argc >= 5) {
 		interval = atoi(argv[1]);
@@ -77,15 +78,42 @@ int main(int argc, char **argv) {
 
 		FILE *fp2 = fopen(filename2, "r");
 		if(fp2 != NULL) {
-			/* Move the pointer to the specified offset. */
-			if(fseek(fp2, offset, SEEK_SET) != 0) { 
-				// TODO error handling
-				return 1;
-			}
 
-			clock_gettime(CLOCK_MONOTONIC, &starttime);
-			size_t newLen = fread(filemem, sizeof(char), bufsize, fp2);
-			clock_gettime(CLOCK_MONOTONIC, &endtime);
+
+			if(cache) {
+				// Move to beginning of file
+				if(fseek(fp2, 0, SEEK_SET) != 0) {
+					// TODO error handling
+					return 1;
+				}
+				
+				// TODO read file to tmp
+				char *tmp = NULL;
+				int maret = posix_memalign((void **)&tmp, sysconf(_SC_PAGESIZE), bufsize+offset);
+				if(maret!=0) {
+					// TODO error handling
+					return 1;
+				}
+				size_t tmpLen = fread(tmp, sizeof(char), bufsize+offset, fp2);
+				char* srcPnt = tmp+offset; //TODO check
+
+				// get start time
+				clock_gettime(CLOCK_MONOTONIC, &starttime);
+				// TODO copy from tmp to filemem
+				memcpy((void*)filemem, (void*)srcPnt, bufsize);
+				// get end time
+				clock_gettime(CLOCK_MONOTONIC, &endtime);
+			} else {
+				/* Move the pointer to the specified offset. */
+				if(fseek(fp2, offset, SEEK_SET) != 0) { 
+					// TODO error handling
+					return 1;
+				}
+
+				clock_gettime(CLOCK_MONOTONIC, &starttime);
+				size_t newLen = fread(filemem, sizeof(char), bufsize, fp2);
+				clock_gettime(CLOCK_MONOTONIC, &endtime);
+			}
 
 			if(newLen == 0) {
 				fputs("Error reading file 2", stderr);
