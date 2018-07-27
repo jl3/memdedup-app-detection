@@ -15,6 +15,7 @@
 #include <signal.h>
 #include <string.h>
 #include <time.h>
+#include <stdbool.h>
 
 int main(int argc, char **argv) {
 	char *filemem = NULL;
@@ -25,6 +26,7 @@ int main(int argc, char **argv) {
 	long bufsize = 0;
 	long offset = 0;
 	bool cache = false;
+	int c;
 
 	while((c = getopt(argc, argv, "1:2:i:l:o:c")) != -1) {
 		switch(c) {
@@ -57,12 +59,12 @@ int main(int argc, char **argv) {
 
 	// Check for presence of parameters. Set defaults/print error.
 	if(!filename) {
-		fprintf(stederr, "Error: Argument -1 is required.");
+		fprintf(stderr, "Error: Argument -1 is required.");
 		return 1;
 	}
 
 	if(!filename2) {
-		fprintf(stederr, "Error: Argument -2 is required.");
+		fprintf(stderr, "Error: Argument -2 is required.");
 		return 1;
 	}
 
@@ -122,6 +124,9 @@ int main(int argc, char **argv) {
 					return 1;
 				}
 				size_t tmpLen = fread(tmp, sizeof(char), bufsize+offset, fp2);
+				if(tmpLen == 0) {
+					fputs("Error reading file 2", stderr);
+				}
 				char* srcPnt = tmp+offset; //TODO check
 
 				// get start time
@@ -140,12 +145,10 @@ int main(int argc, char **argv) {
 				clock_gettime(CLOCK_MONOTONIC, &starttime);
 				size_t newLen = fread(filemem, sizeof(char), bufsize, fp2);
 				clock_gettime(CLOCK_MONOTONIC, &endtime);
-			}
 
-			if(newLen == 0) {
-				fputs("Error reading file 2", stderr);
-			} else {
-				filemem[newLen] = '\0';
+				if(newLen == 0) {
+					fputs("Error reading file 2", stderr);
+				}
 			}
 		}
 		fclose(fp2);
