@@ -17,9 +17,9 @@
 
 int main(int argc, char **argv) {
 	char *filemem = NULL;
-	char *filename;
-	char *filename2;
-	char *logfilename;
+	char *filename = NULL;
+	char *filename2 = NULL;
+	char *logfilename = NULL;
 	unsigned int interval = 0;
 	long bufsize = 0;
 	long offset = 0;
