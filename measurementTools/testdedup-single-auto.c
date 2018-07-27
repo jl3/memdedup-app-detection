@@ -40,7 +40,6 @@ int main(int argc, char **argv) {
 		logfilename = "testdedup.log";
 	}
 
-	// uses code for loading files into memory from http://stackoverflow.com/questions/140029524/c-programming-how-to-read-the-whole-file-contents-into-a-buffer
 	FILE *fp = fopen(filename, "r");
 	if(fp != NULL) {
 		/* Go to the end of the file. */
