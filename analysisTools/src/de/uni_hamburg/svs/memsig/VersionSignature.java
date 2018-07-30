@@ -11,13 +11,14 @@ import java.util.ArrayList;
  * 
  * @author Jens Lindemann
  */
-public class VersionSignature {
-	private SoftwareVersion[] _versions;
+public class VersionSignature implements Comparable<VersionSignature> {
+	private SoftwareVersion[] _versions; // contents need to be ordered
 	private int _pageSize;
 	private ArrayList<Page> _pages;
 	private int _all01count;
 	private int _intDupCount;
 	private int _othVerDups;
+	private int _notMatchingInGroupCount;
 	
 	/**
 	 * Creates a new VersionSignature.
@@ -27,12 +28,13 @@ public class VersionSignature {
 	 * @param all01count the number of {@link Page}s containing only 0- or 1-bits
 	 * @param intDupCount the number of internal duplicate Pages
 	 */
-	public VersionSignature(SoftwareVersion[] versions, int pageSize, int all01count, int intDupCount) {
+	public VersionSignature(SoftwareVersion[] versions, int pageSize, int all01count, int intDupCount, int notMatchingInGroupCount) {
 		_versions = versions;
 		_pageSize = pageSize;
 		_pages = new ArrayList<Page>();
 		_all01count = all01count;
 		_intDupCount = intDupCount;
+		_notMatchingInGroupCount = notMatchingInGroupCount;
 	}
 	
 	/**
@@ -165,6 +167,17 @@ public class VersionSignature {
 	}
 	
 	/**
+	 * Returns the number of {@link Page}s that are present in the first version of the
+	 * group, but that are not present in at least one other version in the group.
+	 * 
+	 * @return number of {@link Page}s present in first version, but not all versions
+	 * of the group
+	 */
+	public int getNotMatchingInGroupCount() {
+		return _notMatchingInGroupCount;
+	}
+	
+	/**
 	 * Writes the signature to a {@link File}.
 	 * 
 	 * @param f file to write to
@@ -181,6 +194,51 @@ public class VersionSignature {
 		} catch (IOException e) {
 			System.err.println("I/O error " + e.getMessage());
 			e.printStackTrace();
+		}
+	}
+
+	@Override
+	public int compareTo(VersionSignature o) {
+		// TODO Auto-generated method stub
+		int cmpres = 0;
+		for(int i = 0; i < _versions.length; i++) {
+			if(o._versions.length < (i+1)) {
+				return -1;
+			}
+			
+			cmpres = _versions[0].compareTo(o._versions[0]);
+			if(cmpres != 0) {
+				return cmpres;
+			}
+		}
+		return cmpres;
+	}
+	
+
+	@Override
+	public boolean equals(Object obj) {
+		if(!(obj instanceof VersionSignature)) {
+			return false;
+		} else {
+			VersionSignature o = (VersionSignature)obj;
+			
+			if(_pageSize != o._pageSize) {
+				return false;
+			}
+			
+			if(_versions.length != o._versions.length) {
+				return false;
+			}
+			
+			for(int i = 0; i < _versions.length; i++) {
+				if(!_versions[i].equals(o._versions[i])) {
+					return false;
+				}
+			}
+			
+			// We could check the signature pages and signature stats as well,
+			// but these really should be identical...
+			return true;
 		}
 	}
 }

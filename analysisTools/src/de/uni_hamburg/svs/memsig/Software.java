@@ -4,10 +4,15 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Hashtable;
 import java.util.Iterator;
+import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeMap;
 import java.util.TreeSet;
+
+import org.apache.commons.lang3.ArrayUtils;
 
 /**
  * This class describes a software. It encapsulates information about all
@@ -125,12 +130,11 @@ public class Software implements Comparable<Software> {
 		
 		int all01count = 0;
 		int intDupCount = 0;
+		int notMatchingInGroupCount = 0;
 		
 		for(CodeSection sect : sections0) {
 			Page[] pages = sect.getPages(pageSize);
 			for(Page p : pages) {
-				
-				
 				// Remove all-0 and all-1 pages as they are almost certain to trigger a false positive.
 				if(p.isAllOnes() || p.isAllZeroes()) {
 					all01count++;
@@ -138,8 +142,10 @@ public class Software implements Comparable<Software> {
 				}
 				
 				// Internal duplicates need to be removed, as a duplicate page within the
-				// signature would be enough to trigger deduplication even without the
-				// binary itself being present in memory.
+				// signature would be sufficient to trigger deduplication even without the
+				// binary itself being present in memory. We will keep one copy, however,
+				// as we still assume that there is only another copy of the page on the host
+				// if the version is actually being executed in another VM.
 				boolean addPage = true;
 				for(Page vp : vPages) {
 					if(vp.contentsEqualTo(p) && !(vp.equals(p))) {
@@ -155,20 +161,25 @@ public class Software implements Comparable<Software> {
 			}
 		}
 		
-		// TODO This will remove all pages that are not contained in all
+		// Remove all pages that are not contained in all
 		// of the versions specified from the signature.
 		if(sigVersions.length > 1) {
-			for(int i = 1; i < sigVersions.length; i++) {
-				for(Page p : vPages) {
+			for(int j = 0; j < vPages.size(); j++) {
+				Page p = vPages.get(j);
+				for(int i = 1; i < sigVersions.length; i++) {
+					System.out.println(j);
 					if(!sigVersions[i].containsPageContent(p)) {
-						vPages.remove(p);
+						vPages.remove(j);
+						notMatchingInGroupCount++;
+						j--; // By removing, all remaining elements have been
+						// shifted to the left, so we have to correct j.
 						break;
 					}
 				}
 			}
 		}
 		
-		return generateSignature(vPages.toArray(new Page[0]), sigVersions, pageSize, all01count, intDupCount);
+		return generateSignature(vPages.toArray(new Page[0]), sigVersions, pageSize, all01count, intDupCount, notMatchingInGroupCount);
 	}
 	
 	/**
@@ -196,8 +207,8 @@ public class Software implements Comparable<Software> {
 	 * @param intDupCount number of internal duplicates
 	 * @return the signature
 	 */
-	private VersionSignature generateSignature(Page[] vPages, SoftwareVersion[] sigVersions, int pageSize, int all01count, int intDupCount) {
-		VersionSignature sig = new VersionSignature(sigVersions, pageSize, all01count, intDupCount);
+	private VersionSignature generateSignature(Page[] vPages, SoftwareVersion[] sigVersions, int pageSize, int all01count, int intDupCount, int notMatchingInGroupCount) {
+		VersionSignature sig = new VersionSignature(sigVersions, pageSize, all01count, intDupCount, notMatchingInGroupCount);
 		int othVerDups = 0;
 		for(Page p : vPages) {
 			boolean pageFound = false;
@@ -258,7 +269,7 @@ public class Software implements Comparable<Software> {
 		
 		return matrix;
 	}
-
+	
 	@Override
 	public int compareTo(Software o) {
 		return _name.compareTo(o._name);

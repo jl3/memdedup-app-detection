@@ -3,8 +3,10 @@ package de.uni_hamburg.svs.memsigstats;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Random;
 
@@ -25,7 +27,7 @@ import org.apache.commons.lang3.ArrayUtils;
  * 
  * @author Jens Lindemann
  */
-public class AccuracyStats {
+public class NaiveAccuracyStats {
 	private int[][] _nondd;
 	private int[][] _dd;
 	private int[] _numPages;
@@ -41,7 +43,7 @@ public class AccuracyStats {
 	 * @param numSets how many sets of measurements are to be sampled for each configuration 
 	 * @param numMeasurements the size of the sample sets
 	 */
-	public AccuracyStats(int[] numPages, String[] ddfstr, String[] nonddfstr, int numSets, int[] numMeasurements) {
+	public NaiveAccuracyStats(int[] numPages, String[] ddfstr, String[] nonddfstr, int numSets, int[] numMeasurements, File outputdir) {
 		File[] ddf = new File[ddfstr.length];
 		for(int i = 0; i < ddf.length; i++) {
 			ddf[i] = new File(ddfstr[i]);
@@ -52,7 +54,7 @@ public class AccuracyStats {
 			nonddf[i] = new File(nonddfstr[i]);
 		}
 		
-		new AccuracyStats(numPages, ddf, nonddf, numSets, numMeasurements);
+		new NaiveAccuracyStats(numPages, ddf, nonddf, numSets, numMeasurements, outputdir);
 	}
 	
 	/**
@@ -75,7 +77,7 @@ public class AccuracyStats {
 	 * @param numSets how many sets of measurements are to be sampled for each configuration 
 	 * @param numMeasurements the size of the sample sets
 	 */
-	public AccuracyStats(int[] numPages, File[] ddf, File[] nonddf, int numSets, int[] numMeasurements) {
+	public NaiveAccuracyStats(int[] numPages, File[] ddf, File[] nonddf, int numSets, int[] numMeasurements, File outputdir) {
 		_numPages = numPages;
 		_limit = new double[_numPages.length];
 		_dd = new int[_numPages.length][];
@@ -110,54 +112,98 @@ public class AccuracyStats {
 		
 		System.out.println("Summary:");
 		System.out.println("numMeasurements");
-		System.out.print("numPages;");
+		String numPagesLine = "numPages";
 		for(int i = 0; i < numMeasurements.length; i++) {
-			if(i != 0) {
-				System.out.print(";");
+			numPagesLine += ";";
+			numPagesLine += numMeasurements[i];
+		}
+		System.out.println(numPagesLine);
+		
+		try {
+			File corrDDFile = new File(outputdir, "corrDD.csv");
+			FileOutputStream corrDDOS = new FileOutputStream(corrDDFile);
+			PrintWriter corrDDWriter = new PrintWriter(corrDDOS);
+			corrDDWriter.write(numPagesLine + "\n");
+			
+			System.out.println("\n%correctDD:");
+			for(int p = 0; p < _numPages.length; p++) {
+				for(int i = 0; i < percCorrDD[p].length; i++) {
+					if(i == 0) {
+						System.out.print(_numPages[p] + ";");
+						corrDDWriter.write(_numPages[p] + ";");
+					} else {
+						System.out.print(";");
+						corrDDWriter.write(";");
+					}
+					System.out.print(percCorrDD[p][i]);
+					corrDDWriter.write(Double.toString(percCorrDD[p][i]));
+				}
+				System.out.print("\n");
+				corrDDWriter.write("\n");
 			}
 			
-			System.out.print(numMeasurements[i]);
-		}
+			corrDDWriter.close();
+			corrDDOS.close();
 		
-		System.out.println("\n%correctDD:");
-		for(int p = 0; p < _numPages.length; p++) {
-			for(int i = 0; i < percCorrDD[p].length; i++) {
-				if(i == 0) {
-					System.out.print(_numPages[p] + ";");
-				} else {
-					System.out.print(";");
+			
+			File nonddFile = new File(outputdir, "corrNonDD.csv");
+			FileOutputStream nonddOS = new FileOutputStream(nonddFile);
+			PrintWriter nonddWriter = new PrintWriter(nonddOS);
+			nonddWriter.write(numPagesLine + "\n");
+			
+			System.out.println("-----------");
+			System.out.println("\n%correctNonDD");
+			for(int p = 0; p < _numPages.length; p++) {
+				for(int i = 0; i < percCorrNonDD[p].length; i++) {
+					if(i == 0) {
+						System.out.print(_numPages[p] + ";");
+						nonddWriter.print(_numPages[p] + ";");
+					} else {
+						System.out.print(";");
+						nonddWriter.write(";");
+					}
+					System.out.print(percCorrNonDD[p][i]);
+					nonddWriter.write(Double.toString(percCorrNonDD[p][i]));
 				}
-				System.out.print(percCorrDD[p][i]);
+				System.out.print("\n");
+				nonddWriter.write("\n");
 			}
-			System.out.print("\n");
-		}
-	
-		System.out.println("-----------");
-		System.out.println("\n%correctNonDD");
-		for(int p = 0; p < _numPages.length; p++) {
-			for(int i = 0; i < percCorrNonDD[p].length; i++) {
-				if(i == 0) {
-					System.out.print(_numPages[p] + ";");
-				} else {
-					System.out.print(";");
+			
+			nonddWriter.close();
+			nonddOS.close();
+			
+			
+			File avgFile = new File(outputdir, "corrAvg.csv");
+			FileOutputStream avgOS = new FileOutputStream(avgFile);
+			PrintWriter avgWriter = new PrintWriter(avgOS);
+			avgWriter.write(numPagesLine + "\n");
+			
+			System.out.println("-----------");
+			System.out.println("\n%avgCorrect(50/50)");
+			for(int p = 0; p < _numPages.length; p++) {
+				for(int i = 0; i < percCorrNonDD[p].length; i++) {
+					if(i == 0) {
+						System.out.print(_numPages[p] + ";");
+						avgWriter.write(_numPages[p] + ";");
+					} else {
+						System.out.print(";");
+						avgWriter.write(";");
+					}
+					System.out.print((percCorrNonDD[p][i] + percCorrDD[p][i]) / 2);
+					avgWriter.write(Double.toString((percCorrNonDD[p][i] + percCorrDD[p][i]) / 2));
 				}
-				System.out.print(percCorrNonDD[p][i]);
+				System.out.print("\n");
+				avgWriter.write("\n");
 			}
-			System.out.print("\n");
-		}
-		
-		System.out.println("-----------");
-		System.out.println("\n%avgCorrect(50/50)");
-		for(int p = 0; p < _numPages.length; p++) {
-			for(int i = 0; i < percCorrNonDD[p].length; i++) {
-				if(i == 0) {
-					System.out.print(_numPages[p] + ";");
-				} else {
-					System.out.print(";");
-				}
-				System.out.print((percCorrNonDD[p][i] + percCorrDD[p][i]) / 2);
-			}
-			System.out.print("\n");
+			
+			avgWriter.close();
+			avgOS.close();
+		} catch (FileNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
 		}
 	}
 	
@@ -328,6 +374,13 @@ public class AccuracyStats {
 				.desc("number of sets for bootstrap-resample")
 				.build();
 		
+		Option outputPathOpt = Option.builder("o")
+				.longOpt("outputpath")
+				.hasArg()
+				.argName("path")
+				.desc("output path (default: <current_dir>/rocstats)")
+				.build();
+		
 		Option helpOpt = Option.builder("h")
 				.longOpt("help")
 				.desc("print this message")
@@ -337,6 +390,7 @@ public class AccuracyStats {
 		opt.addOption(nonddFileOpt);
 		opt.addOption(ddFileOpt);
 		opt.addOption(numMeasurementsOpt);
+		opt.addOption(outputPathOpt);
 		opt.addOption(helpOpt);
 		opt.addOption(setsOpt);
 		
@@ -380,7 +434,12 @@ public class AccuracyStats {
 			measurementsIntArray[i] = new Integer(measurementsStrArray[i]);
 		}
 		
-		new AccuracyStats(numPages, ddfstr, nonddfstr, numSets, measurementsIntArray);
+		String outputPathStr = cmd.getOptionValue(outputPathOpt.getOpt());
+		if(outputPathStr == null) outputPathStr = "rocstats";
+		File outputdir = new File(outputPathStr);
+		outputdir.mkdir();
+		
+		new NaiveAccuracyStats(numPages, ddfstr, nonddfstr, numSets, measurementsIntArray, outputdir);
 	}
 	
 	/**

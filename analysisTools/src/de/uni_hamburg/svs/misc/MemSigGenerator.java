@@ -14,8 +14,13 @@ import java.util.List;
  * the ones being unique to the memory image for which a signature is to be
  * created. 
  * 
+ * This class is only useful for experimentation with individual versions and
+ * cannot be used for generating signatures for large-scale datasets.
+ * 
  * @author Jens Lindemann
  */
+
+@Deprecated
 public class MemSigGenerator {
 	FileOutputStream _log; // TODO implement logging
 	
@@ -23,12 +28,12 @@ public class MemSigGenerator {
 	int _totalDuplicate;
 	
 	/**
+	 * Constructor for generating signatures by comparing two files.
 	 * 
-	 * 
-	 * @param filename1
-	 * @param filename2
-	 * @param outFile
-	 * @param logFilename
+	 * @param filename1 file to create signature for
+	 * @param filename2 file to compare to
+	 * @param outFile file to write signature to
+	 * @param logFilename file to write logs to
 	 */
 	public MemSigGenerator(String filename1, String filename2, String outFile, String logFilename) {
 		File f1 = new File(filename1);
@@ -39,7 +44,8 @@ public class MemSigGenerator {
 	}
 	
 	/**
-	 * 
+	 * Constructor for generating signatures by comparing two directories
+	 * containing 
 	 * 
 	 * @param dirname1
 	 * @param dirname2
@@ -52,9 +58,9 @@ public class MemSigGenerator {
 	}
 	
 	/**
+	 * Initialises the log.
 	 * 
-	 * 
-	 * @param logFilename
+	 * @param logFilename filename of log
 	 */
 	private void initLog(String logFilename) {
 		File logfile = new File(logFilename);
@@ -68,7 +74,7 @@ public class MemSigGenerator {
 	}
 	
 	/**
-	 * 
+	 * Closes the log.
 	 */
 	private void closeLog() {
 		try {
@@ -134,6 +140,7 @@ public class MemSigGenerator {
 	/**
 	 * Compares two files (in the form of Lists of byte arrays corresponding
 	 * to memory pages) and replaces duplicate pages by null in byteList.
+	 * 
 	 * @param byteList List containing file for which signature is to be generated
 	 * @param removeByteList List containing file to be compared against
 	 */
@@ -155,9 +162,10 @@ public class MemSigGenerator {
 	
 	/**
 	 * Creates the signature.
-	 * @param sigFile
-	 * @param cmpFile
-	 * @param outFilename
+	 * 
+	 * @param sigFile {@link File} to create signature for
+	 * @param cmpFile {@link File} to compare sigFile to
+	 * @param outFilename {@link File} to ouput signature to
 	 * @param mos FileOutputStream for merged signature. null, if no merged signature is to be created
 	 */
 	private void createSignature(File sigFile, File cmpFile, String outFilename, FileOutputStream mos) {
@@ -210,10 +218,19 @@ public class MemSigGenerator {
 			e.printStackTrace();
 		}
 	}
-	
+
 	/**
-	 * TODO Text log
+	 * Compare the individual sections of a binary. The sections must be placed
+	 * in individual files in two directories. Unique pages in sections in
+	 * dirname1 are determined by comparing the sections to those in dirname2.
+	 * The comparison is on a section-by-section base only -- to create real
+	 * signatures, the existence of a page should be checked for *all* sections
+	 * of the other binary.
+	 * 
+	 * @param dirname1 directory containing files for all sections of the first binary
+	 * @param dirname2 directory containing files for all sections of the binary to compare the first binary to
 	 */
+	@Deprecated
 	private void createDirSignatures(String dirname1, String dirname2) {
 		try {
 			File dir1 = new File(dirname1);

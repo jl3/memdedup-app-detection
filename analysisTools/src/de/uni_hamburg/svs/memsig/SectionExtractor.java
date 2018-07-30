@@ -8,8 +8,10 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 
 import nl.lxtreme.binutils.elf.Elf;
+import nl.lxtreme.binutils.elf.ProgramHeader;
 import nl.lxtreme.binutils.elf.SectionHeader;
 import nl.lxtreme.binutils.elf.SectionType;
+import nl.lxtreme.binutils.elf.SegmentType;
 
 /**
  * This class extracts the individual code sections from a binary. It relies
@@ -19,6 +21,7 @@ import nl.lxtreme.binutils.elf.SectionType;
  */
 public class SectionExtractor {
 	private Elf elf;
+	private int _pageSize;
 	
 	/**
 	 * Creates a new SectionExtractor.
@@ -26,8 +29,11 @@ public class SectionExtractor {
 	 * @param elfFilename filename of the binary
 	 */
 	public SectionExtractor(String elfFilename) {
-		File elfFile = new File(elfFilename);
-		new SectionExtractor(elfFile);
+		this(elfFilename, 4096);
+	}
+	
+	public SectionExtractor(String elfFilename, int pageSize) {
+		this(new File(elfFilename), pageSize);
 	}
 	
 	/**
@@ -36,8 +42,13 @@ public class SectionExtractor {
 	 * @param binary the binary to process
 	 */
 	public SectionExtractor(File binary) {
+		this(binary, 4096);
+	}
+	
+	public SectionExtractor(File binary, int pageSize) {
 		try {
 			this.elf = new Elf(binary);
+			this._pageSize = pageSize;
 		} catch (IOException e) {
 			System.err.println("I/O error");
 			e.printStackTrace();
@@ -72,6 +83,27 @@ public class SectionExtractor {
 				mos = new FileOutputStream(mergedOutFilename);
 			}
 			
+			for(int i = 0; i < elf.programHeaders.length; i++) {
+				ProgramHeader ph = elf.programHeaders[i];
+				if(!ph.type.equals(SegmentType.LOAD)) {
+					continue;
+				}
+				
+				byte[] segBytes = getSegmentBytes(ph);
+				
+				if(mergedFile) {
+					mos.write(segBytes);
+				}
+				
+				if(indivFiles) {
+					String sectOutFilename = new String(outputPath + "/" + i + ".seg");
+					FileOutputStream sos = new FileOutputStream(sectOutFilename);
+					sos.write(segBytes);
+					sos.close();
+				}
+			}
+			
+			/*
 			for(int i = 0; i < elf.sectionHeaders.length; i++) {
 				if(elf.sectionHeaders[i].type == SectionType.PROGBITS) {
 					byte[] secBytes = getSectionBytes(elf.sectionHeaders[i]);
@@ -91,7 +123,7 @@ public class SectionExtractor {
 			
 			if(mergedFile) {
 				mos.close();
-			}
+			}*/
 		} catch (FileNotFoundException e) {
 			System.err.println("Could not find file " + e.getMessage());
 			e.printStackTrace();
@@ -100,6 +132,50 @@ public class SectionExtractor {
 			e.printStackTrace();
 		}
 	}
+	
+	/**
+	 * Gets the contents of the segment identified by a specific {@link ProgramHeader}.
+	 * 
+	 * @param sh {@link ProgramHeader} of the section to be retrieved
+	 * @return contents of the segment
+	 */
+	private byte[] getSegmentBytes(ProgramHeader ph) {
+		ByteBuffer segBuffer;
+		try {
+			long addr = pagestart(ph.virtualAddress);
+			long off = ph.offset - pageoffset(ph.virtualAddress);
+			
+			segBuffer = elf.getSegment(ph);
+			int buflen = segBuffer.remaining();
+			
+			// ensure padding to page size
+			int missingBytes = 0;
+			int mod = buflen % _pageSize;
+			if(mod > 0) {
+				missingBytes = _pageSize - mod;
+			}
+			int arlen = buflen + missingBytes;
+			
+			byte[] sArray = new byte[arlen];
+			segBuffer.get(sArray, 0, buflen);
+			return sArray;
+		} catch (IOException e) {
+			System.err.println("I/O error " + e.getMessage());
+			e.printStackTrace();
+			return null;
+		}
+	}
+	
+	private long pagestart(long addr) {
+		long paddr = addr & ~(_pageSize - 1);
+		return paddr;
+	}
+	
+	private long pageoffset(long addr) {
+		long poff = addr & (_pageSize - 1);
+		return poff;
+	}
+	
 	
 	/**
 	 * Gets the contents of the section identified by a specific {@link SectionHeader}.

@@ -121,6 +121,9 @@ public class SoftwareVersion implements Comparable<SoftwareVersion> {
 	 * (3) unique to this version.
 	 * The method will not handle pages containing only 0- or 1-bits separately.
 	 * 
+	 * Note that this method will count *all* copies of internal duplicates as
+	 * internal duplicate, despite the fact that one might want to keep one
+	 * copy when actually generating signatures.
 	 * 
 	 * @param cmpVersion SoftwareVersion to compare to
 	 * @param pageSize page size

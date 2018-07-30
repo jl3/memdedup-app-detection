@@ -24,6 +24,7 @@ import org.apache.commons.cli.MissingOptionException;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
+import org.apache.commons.lang3.ArrayUtils;
 
 public class MemSigs {
 	static final String sep = ";";
@@ -62,7 +63,7 @@ public class MemSigs {
 								.build();
 		
 		Option vsigsOpt = Option.builder("vsigs")
-								.desc("creates version signatures for all versions in the specified subdirectory of swpath (default: swpath/vsigs)")
+								.desc("creates version signatures for all versions in the specified subdirectory of swpath (default: swpath/vsigs).")
 								.optionalArg(true)
 								.numberOfArgs(1)
 								.argName("directory")
@@ -70,10 +71,32 @@ public class MemSigs {
 		
 		Option cmpVersOpt = Option.builder("c")
 								.longOpt("compv")
-								.desc("compares all versions (equal, unique and internal duplicate pages). Output directory can be specified (default: swpath/comp)")
+								.desc("compares all versions (equal, unique and internal duplicate pages). Output directory can be specified (default: swpath/comp).")
 								.optionalArg(true)
 								.numberOfArgs(1)
 								.argName("directory")
+								.build();
+		
+		Option findGroupsOpt = Option.builder("f")
+								.longOpt("findgrp")
+								.desc("determines the optimal group configuration for group signatures (according to parameters -t and -md). Output directory can be specified (default: swpath/groups).")
+								.optionalArg(true)
+								.numberOfArgs(1)
+								.argName("output_dir")
+								.build();
+		
+		Option threshOpt = Option.builder("t")
+								.longOpt("threshold")
+								.desc("threshold for single-version signatures to be considered for group signatures (default: 0.4)")
+								.hasArg()
+								.argName("threshold")
+								.build();
+		
+		Option maxDistOpt = Option.builder("md")
+								.longOpt("maxdist")
+								.desc("maximum distance between first and last version in a group (default: 10)")
+								.hasArg()
+								.argName("distance")
 								.build();
 		
 		Option helpOpt = Option.builder("h")
@@ -94,8 +117,11 @@ public class MemSigs {
 		opt.addOption(binnameOpt);
 		opt.addOption(vsigsOpt);
 		opt.addOption(cmpVersOpt);
+		opt.addOption(findGroupsOpt);
 		opt.addOption(helpOpt);
 		opt.addOption(psizeOpt);
+		opt.addOption(threshOpt);
+		opt.addOption(maxDistOpt);
 		
 		CommandLineParser parser = new DefaultParser();
 		try {
@@ -338,6 +364,131 @@ public class MemSigs {
 				duplRelWriter.close();
 				duplRelOs.flush();
 				duplRelOs.close();
+			}
+			
+			if(cmd.hasOption(findGroupsOpt.getOpt())) {
+				// get threshold from CLI
+				String threshstr = cmd.getOptionValue(threshOpt.getOpt());
+				if(threshstr == null) threshstr = "0.4";
+				Double thresh = new Double(threshstr);
+				
+				// get maximum distance from CLI
+				String maxDistStr = cmd.getOptionValue(maxDistOpt.getOpt());
+				if(maxDistStr == null) maxDistStr = "10";
+				Integer maxDist = new Integer(maxDistStr);
+				
+				// TODO new GroupFinder, call findSignatureGroups, get results, print/save
+				//RecursiveGroupFinder grpf = new RecursiveGroupFinder(sw, pagesize, thresh, maxDist);
+				//GroupFinder grpf = new IterativeGroupFinder(sw, pagesize, thresh, maxDist);
+				GroupFinder grpf = new IterativeSimilarityGroupFinder(sw, pagesize, thresh, maxDist);
+				SoftwareVersionGroup[] bestGroups = grpf.findSignatureGroups();
+				
+				// Create String for group configuration and stats file
+				String grpcfg = new String();
+				grpcfg += "avgsize" + sep + grpf.getBestGroupConfigAvgSigsize() + "\n";
+				for(int i = 0; i < bestGroups.length; i++) {
+					grpcfg += ("Group" + i + sep);
+					SoftwareVersion[] currGrp = bestGroups[i].toArray();
+					
+					for(int j = 0; j < currGrp.length; j++) {
+						grpcfg += (currGrp[j]);
+						if((j + 1) < currGrp.length) { 
+							grpcfg += sep;
+						}
+					}
+					grpcfg += ("\n");
+				}
+				
+				System.out.println(grpcfg);
+				
+				// Create subdirectory for comparison stats (if no name is specified in CLI options, use comp as default
+				String grpdirname = cmd.getOptionValue(findGroupsOpt.getOpt());
+				if(grpdirname == null) grpdirname = "groups";
+				File grpdir = new File(swpath, grpdirname);
+				if(!grpdir.exists()) {
+					grpdir.mkdir();
+				}
+				
+				// write group config to file in grpdir
+				File grpcfgFile = new File(grpdir, "groupconfig.csv");
+				FileOutputStream grpCfgOs = new FileOutputStream(grpcfgFile);
+				PrintWriter grpCfgWriter = new PrintWriter(grpCfgOs);
+				grpCfgWriter.write(grpcfg);
+				grpCfgWriter.flush();
+				grpCfgWriter.close();
+				grpCfgOs.flush();
+				grpCfgOs.close();
+				
+				// write individual group stats to file in grpdir
+				// Create detailed stat file (unique pages, internal duplicates, matching pages between two groups)
+				File grpstatsFile = new File(grpdir, "groupstats.csv");
+				FileOutputStream grpstatsOs = new FileOutputStream(grpstatsFile);
+				PrintWriter grpstatsWriter = new PrintWriter(grpstatsOs);
+				grpstatsWriter.write("group" + sep + "binSize" + sep + "sigSize" + sep + "all01" + sep + "intDup" + sep + "dupsOtherVersions" + sep + "notMatchingInGroup" + sep + "avgDist" + sep + "lowHigDist" + sep + "skippedVer");
+				
+				
+				// write group signatures to files in grpdir
+				for(int i = 0; i < bestGroups.length; i++) {
+					SoftwareVersion[] versions = bestGroups[i].toArray();
+					//SoftwareVersion[] versions = new SoftwareVersion[currGrpArray.length];
+					String grpname = "g" + i;
+					for(int j = 0; j < versions.length; j++) {
+						grpname += "__" + versions[j].toString();
+					}
+					//grpname += ".sig";
+					System.out.println("Generating "  + grpname + "...");
+					
+					VersionSignature sig = sw.generateVersionsSignature(versions, pagesize);
+					
+					grpstatsWriter.write("\n");
+					grpstatsWriter.write(grpname + sep);
+					// TODO For now, we'll just use the size of the first binary.
+					// Other options: - smallest binary (as this is the upper bound)?
+					// - number of pages present in all versions?
+					grpstatsWriter.write(versions[0].numberOfPages(pagesize) + sep);
+					grpstatsWriter.write(sig.numberOfPages() + sep);
+					grpstatsWriter.write(sig.getAll01Count() + sep);
+					grpstatsWriter.write(sig.getIntDupCount() + sep);
+					grpstatsWriter.write(sig.getOtherVersionDups() + sep);
+					grpstatsWriter.write(sig.getNotMatchingInGroupCount() + sep);
+					
+					SoftwareVersion[] idvVer = sw.getVersions().toArray(new SoftwareVersion[0]);
+					
+					// avgDist
+					/*long distSum = 0;
+					int distNum = 0;
+					for(int j = 0; j < versions.length; j++) {
+						int pos1 = ArrayUtils.indexOf(idvVer, versions[j]);
+						for(int k = j+1; k < versions.length; k++) {
+							int pos2 = ArrayUtils.indexOf(idvVer, versions[k]);
+							int dist = Math.abs(pos2 - pos1);
+							distSum += dist;
+							distNum++;
+						}
+					}
+					double avgDist = (double)distSum / distNum;*/
+					double avgDist = bestGroups[i].getAvgVersionDistance();
+					grpstatsWriter.write(avgDist + sep);
+					
+					// lowHiDist
+					//int lowPos = ArrayUtils.indexOf(idvVer, versions[0]);
+					//int hiPos = ArrayUtils.indexOf(idvVer, versions[versions.length-1]);
+					//int lowHiDist = Math.abs(hiPos - lowPos);
+					int lowHiDist = bestGroups[i].getMaxVersionDistance();
+					grpstatsWriter.write(lowHiDist + sep);
+					
+					// skippedVer
+					int skippedVer = bestGroups[i].getSkippedVersionCount();
+					grpstatsWriter.write(skippedVer + "");
+					
+					File sigFile = new File(grpdir, grpname + ".sig");
+					sig.writeToFile(sigFile);
+				}
+				
+				grpstatsWriter.flush();
+				grpstatsWriter.close();
+				grpstatsOs.flush();
+				grpstatsOs.close();
 			}
 		} catch (MissingOptionException e) {
 			printHelp(opt);

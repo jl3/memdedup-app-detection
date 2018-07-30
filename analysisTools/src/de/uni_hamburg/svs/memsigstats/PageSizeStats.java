@@ -22,6 +22,12 @@ import org.apache.commons.lang3.ArrayUtils;
  * dedupplication at different page sizes. It supports calculation
  * of separate statistics based on how much sharing potential a
  * {@link SoftwareVersion} exhibits at the base page size.
+ * As input, it requires statistics about the individual signatures
+ * at the two different page sizes that are to be compared.
+ * 
+ * Statistics that will be output include: average percentage of shared pages,
+ * average percentage of low-sharing and high-sharing pages (according to
+ * configureable threshold) and average size of signatures.
  * 
  * @author Jens Lindemann
  */
@@ -36,9 +42,13 @@ public class PageSizeStats {
 	private int _cmpPS;
 	
 	/**
+	 * Creates a new PageSizeStats instance and initialises it.
 	 * 
-	 * @param basefileStr
-	 * @param cmpfileStr
+	 * @param basefileStr base stats file (typically page size of 4096 bytes)
+	 * @param cmpfileStr stats file to compare base to
+	 * @param threshold threshold for low- vs. high-sharing pages
+	 * @param basePS page size used for base stats
+	 * @param cmpPS page size used for comparison stats
 	 */
 	public PageSizeStats(String basefileStr, String cmpfileStr, double threshold, int basePS, int cmpPS) {
 		File baseFile = new File(basefileStr);
@@ -46,10 +56,15 @@ public class PageSizeStats {
 		new PageSizeStats(baseFile, cmpFile, threshold, basePS, cmpPS);
 	}
 	
+
 	/**
+	 * Creates a new PageSizeStats instance and initialises it.
 	 * 
-	 * @param baseFile
-	 * @param cmpFile
+	 * @param baseFile base stats file (typically page size of 4096 bytes)
+	 * @param cmpFile stats file to compare base to
+	 * @param threshold threshold for low- vs. high-sharing pages
+	 * @param basePS page size used for base stats
+	 * @param cmpPS page size used for comparison stats
 	 */
 	public PageSizeStats(File baseFile, File cmpFile, double threshold, int basePS, int cmpPS) {
 		_thresh = threshold;
@@ -59,6 +74,9 @@ public class PageSizeStats {
 		createStats();
 	}
 
+	/**
+	 * Calculates the statistics.
+	 */
 	private void createStats() {
 		double baseLowSum = 0;
 		int baseLowNum = 0;
@@ -109,6 +127,12 @@ public class PageSizeStats {
 		System.out.println("cmp;" + cmpavg + ";" + cmpLowAvg + ";" + cmpHiAvg + ";" + cmpSizeAvg);
 	}
 	
+	/**
+	 * Computes the average of the values in an int[].
+	 * 
+	 * @param a int[] to compare average of
+	 * @return average of values in a
+	 */
 	private double avg(int[] a) {
 		int sum = 0;
 		for(int i : a) {
@@ -118,6 +142,12 @@ public class PageSizeStats {
 		return avg;
 	}
 	
+	/**
+	 * Reads the two input files into the internal arrays.
+	 * 
+	 * @param baseFile base stats file
+	 * @param cmpFile comparison stats file
+	 */
 	private void initArrays(File baseFile, File cmpFile) {
 		try {
 			BufferedReader br = new BufferedReader(new FileReader(baseFile));
@@ -270,8 +300,7 @@ public class PageSizeStats {
 	}
 	
 	/**
-	 * 
-	 * @param opt
+	 * Prints the help output to the command line.
 	 */
 	private static void printHelp(Options opt) {
 		HelpFormatter formatter = new HelpFormatter();
