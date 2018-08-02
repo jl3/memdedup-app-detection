@@ -13,6 +13,11 @@ public class Page {
 	private CodeSection _section;
 	private long _pos;
 	
+	private boolean _all0Checked;
+	private boolean _isAll0;
+	private boolean _all1Checked;
+	private boolean _isAll1;
+	
 	/**
 	 * Creates a new Page object.
 	 * 
@@ -88,12 +93,18 @@ public class Page {
 	 * @return true if Page contains only 0-bits, false otherwise
 	 */
 	public boolean isAllZeroes() {
-		for(int i = 0; i < _bytes.length; i++) {
-			if(_bytes[i] != 0) {
-				return false;
+		if(!_all0Checked) {
+			_isAll0 = true;
+			for(int i = 0; i < _bytes.length; i++) {
+				if(_bytes[i] != 0) {
+					_isAll0 = false;
+					break;
+				}
 			}
+			_all0Checked = true;
 		}
-		return true;
+		
+		return _isAll0;
 	}
 	
 	/**
@@ -102,12 +113,18 @@ public class Page {
 	 * @return true if Page contains only 1-bits, false otherwise
 	 */
 	public boolean isAllOnes() {
-		for(int i = 0; i < _bytes.length; i++) {
-			if(_bytes[i] != 1) {
-				return false;
+		if(!_all1Checked) {
+			_isAll1 = true;
+			for(int i = 0; i < _bytes.length; i++) {
+				if(_bytes[i] != 1) {
+					_isAll1 = false;
+					break;
+				}
 			}
+			_all1Checked = true;
 		}
-		return true;
+		
+		return _isAll1;
 	}
 
 	/**
