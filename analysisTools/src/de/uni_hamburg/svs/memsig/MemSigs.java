@@ -85,6 +85,21 @@ public class MemSigs {
 								.argName("output_dir")
 								.build();
 		
+		Option findGroupsAlgOpt = Option.builder("falg")
+								   .longOpt("findgrpalg")
+								   .desc("specifies the algorithm used for identifying groups: similarity-maxsigsize, neighbour-maxgrpsize (Default if falg is not specified: similarity-maxsigsize)")
+								   .hasArg()
+								   .argName("algorithm")
+								   .build();
+		
+		Option matchpagesOpt = Option.builder("m")
+								.longOpt("matchpgs")
+								.desc("find individual pages matching across versions. Output directory can be specified (Default: swpath/matchpgs)")
+								.optionalArg(true)
+								.numberOfArgs(1)
+								.argName("directory")
+								.build();
+		
 		Option threshOpt = Option.builder("t")
 								.longOpt("threshold")
 								.desc("threshold for single-version signatures to be considered for group signatures (default: 0.4)")
@@ -118,6 +133,8 @@ public class MemSigs {
 		opt.addOption(vsigsOpt);
 		opt.addOption(cmpVersOpt);
 		opt.addOption(findGroupsOpt);
+		opt.addOption(findGroupsAlgOpt);
+		opt.addOption(matchpagesOpt);
 		opt.addOption(helpOpt);
 		opt.addOption(psizeOpt);
 		opt.addOption(threshOpt);
@@ -150,7 +167,7 @@ public class MemSigs {
 			File swpath = new File(swpathStr);
 			File versionsPath = new File(swpath, "versions");
 			
-			Software sw = new Software(swname, versionsPath, binname);
+			Software sw = new Software(swname, versionsPath, binname, pagesize);
 			
 			// Generate version signatures (and statistics) if the appropriate CLI
 			// option has been set.
@@ -214,7 +231,7 @@ public class MemSigs {
 						detailWriter.write("Version: " + versionString + "\nPages:\n");
 						for(int i = 0; i < sig.numberOfPages(); i++) {
 							Page p = sig.getPage(i);
-							String sectName = p.getSection().getName();
+							String sectName = p.getPart().getName();
 							detailWriter.write("Section: " + sectName + "; page: " + p.getPageNumber() + "\n");
 						}
 						detailWriter.write("---------------\n");
@@ -366,6 +383,18 @@ public class MemSigs {
 				duplRelOs.close();
 			}
 			
+			if(cmd.hasOption(matchpagesOpt.getOpt())) {
+				// Create subdirectory for comparison stats (if no name is specified in CLI options, use comp as default
+				String mpfdirname = cmd.getOptionValue(matchpagesOpt.getOpt());
+				if(mpfdirname == null) mpfdirname = "matchpgs";
+				File mpfdir = new File(swpath, mpfdirname);
+				if(!mpfdir.exists()) {
+					mpfdir.mkdir();
+				}
+				MatchingPageFinder mpf = new MatchingPageFinder(sw, pagesize, mpfdir);
+				mpf.findMatchingPages();
+			}
+			
 			if(cmd.hasOption(findGroupsOpt.getOpt())) {
 				// get threshold from CLI
 				String threshstr = cmd.getOptionValue(threshOpt.getOpt());
@@ -377,10 +406,23 @@ public class MemSigs {
 				if(maxDistStr == null) maxDistStr = "10";
 				Integer maxDist = new Integer(maxDistStr);
 				
-				// TODO new GroupFinder, call findSignatureGroups, get results, print/save
 				//RecursiveGroupFinder grpf = new RecursiveGroupFinder(sw, pagesize, thresh, maxDist);
 				//GroupFinder grpf = new IterativeGroupFinder(sw, pagesize, thresh, maxDist);
-				GroupFinder grpf = new IterativeSimilarityGroupFinder(sw, pagesize, thresh, maxDist);
+				String algstring = "similarity-maxsigsize"; // default
+				if(cmd.hasOption(findGroupsAlgOpt.getOpt())) {
+					algstring = cmd.getOptionValue(findGroupsAlgOpt.getOpt());
+				}
+				
+				GroupFinder grpf = null;
+				if(algstring.equals("similarity-maxsigsize")) {
+					grpf = new IterativeSimilarityGroupFinder(sw, pagesize, thresh, maxDist);
+				} else if (algstring.equals("neighbour-maxgrpsize")) {
+					grpf = new IterativeNeighbouringGroupFinder(sw, pagesize, thresh, maxDist);
+				} else {
+					System.err.print("ERROR: Incorrect group finding algorithm specified.");
+					MemSigs.printHelp(opt);
+					System.exit(1);
+				}
 				SoftwareVersionGroup[] bestGroups = grpf.findSignatureGroups();
 				
 				// Create String for group configuration and stats file

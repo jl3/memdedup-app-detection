@@ -7,36 +7,38 @@ import java.util.Arrays;
 import org.apache.commons.io.FileUtils;
 
 /**
- * This class models a code section from an executable binary.
+ * This class models a code part from an executable binary. For ELF binaries,
+ * this will typically be used to store loadable code segments. However, the
+ * class can also be used to store code sections or non-loadable segments.
  * 
- * A CodeSection object itself does not have a specified page size. Instead,
+ * A CodePart object itself does not have a specified page size. Instead,
  * the page size must be specified when calling methods where page size
  * influences the method's results.
  * 
  * @author Jens Lindemann
  */
-public class CodeSection implements Comparable<CodeSection> {
+public class CodePart implements Comparable<CodePart> {
 	private SoftwareVersion _swVersion;
-	// Software is available through _swVersion. We could introduce a separate field here, but this may lead to inconsistencies.
-	private String _sectionName;
-	private byte[] _bytes; // unpadded section contents
+	// Software is available through _swVersion. Thus, we do not need a separate field here.
+	private String _partName;
+	private byte[] _bytes; // unpadded contents
 	
 	/**
-	 * Creates a new CodeSection object.
+	 * Creates a new CodePart object.
 	 * 
-	 * @param sv the SoftwareVersion the section belongs to
-	 * @param secName the section's name
-	 * @param secFile the File containing the section data
+	 * @param sv the SoftwareVersion the part belongs to
+	 * @param partName the part's name (e.g. the segment name)
+	 * @param partFile the File containing the part data
 	 */
-	public CodeSection(SoftwareVersion sv, String secName, File secFile) {
-		_sectionName = secName;
+	public CodePart(SoftwareVersion sv, String partName, File partFile) {
+		_partName = partName;
 		_swVersion = sv;
 		
-		readFromFile(secFile);
+		readFromFile(partFile);
 	}
 	
 	/**
-	 * Reads the section contents from file.
+	 * Reads the part contents from file.
 	 * 
 	 * @param file File to read from
 	 */
@@ -44,45 +46,45 @@ public class CodeSection implements Comparable<CodeSection> {
 		try {
 			_bytes = FileUtils.readFileToByteArray(file);
 		} catch (IOException e) {
-			System.err.println("Error when reading section file " + file.getAbsolutePath());
+			System.err.println("Error when reading file " + file.getAbsolutePath());
 			e.printStackTrace();
 		}
 	}
 	
 	/**
-	 * Returns the contents of the section without padding.
+	 * Returns the contents of the part without padding.
 	 * 
-	 * @return section bytes, unpadded
+	 * @return part bytes, unpadded
 	 */
 	public byte[] getBytes() {
 		return _bytes;
 	}
 	
 	/**
-	 * Returns the contents of the sections. Content will be padded so that its length
+	 * Returns the contents of the parts. Content will be padded so that its length
 	 * is a multiple of the specified page size.
 	 * 
 	 * @param pageSize page size (for padding)
-	 * @return section bytes, padded to pageSize
+	 * @return content bytes, padded to pageSize
 	 */
 	public byte[] getBytes(int pageSize) {
 		return Arrays.copyOfRange(_bytes, 0, this.numberOfPages(pageSize)*pageSize);
 	}
 	
 	/**
-	 * Returns the name of the section.
+	 * Returns the name of the part (e.g. the segment name).
 	 * 
-	 * @return the section's name
+	 * @return the part's name
 	 */
 	public String getName() {
-		return _sectionName;
+		return _partName;
 	}
 	
 	/**
-	 * Returns the contents of the section as an array of Page objects.
+	 * Returns the contents of the part as an array of Page objects.
 	 * 
 	 * @param pageSize page size (for padding)
-	 * @return Pages contained in the section
+	 * @return Pages contained in the part
 	 */
 	public Page[] getPages(int pageSize) {
 		Page[] pages = new Page[numberOfPages(pageSize)];
@@ -93,11 +95,11 @@ public class CodeSection implements Comparable<CodeSection> {
 	}
 	
 	/**
-	 * Gets a {@link Page} from the section.
+	 * Gets a {@link Page} from the part.
 	 * 
 	 * @param page index of the {@link Page} to get
 	 * @param pageSize page size
-	 * @return the specified {@link Page} from the section
+	 * @return the specified {@link Page} from the part
 	 */
 	public Page getPage(int page, int pageSize) {
 		long pos = page*pageSize;
@@ -107,11 +109,11 @@ public class CodeSection implements Comparable<CodeSection> {
 	}
 	
 	/**
-	 * Returns the contents of the section as a 2D array, where the first dimension identifies
+	 * Returns the contents of the part as a 2D array, where the first dimension identifies
 	 * the page number and the second the position within the page.
 	 * 
 	 * @param pageSize page size (for padding)
-	 * @return contents of section as 2D array
+	 * @return contents of part as 2D array
 	 */
 	public byte[][] getPagesBytes(int pageSize) {
 		int numPages = this.numberOfPages(pageSize);
@@ -125,7 +127,7 @@ public class CodeSection implements Comparable<CodeSection> {
 	}
 	
 	/**
-	 * Gets the contents of a specific page of the section.
+	 * Gets the contents of a specific page of the part.
 	 * 
 	 * @param page index of the page to get
 	 * @param pageSize page size
@@ -138,19 +140,19 @@ public class CodeSection implements Comparable<CodeSection> {
 	}
 	
 	/**
-	 * Returns the length of the section in bytes.
+	 * Returns the length of the part in bytes.
 	 * 
-	 * @return length of the section in bytes.
+	 * @return length of the part in bytes.
 	 */
 	public int getLength() {
 		return _bytes.length;
 	}
 	
 	/**
-	 * Returns the number of pages of the section for the specified page size.
+	 * Returns the number of pages in the part for the specified page size.
 	 * 
 	 * @param pageSize page size
-	 * @return the number of pages in the section
+	 * @return the number of pages in the part
 	 */
 	public int numberOfPages(int pageSize) {
 		int numPages = _bytes.length / pageSize;
@@ -162,13 +164,13 @@ public class CodeSection implements Comparable<CodeSection> {
 	}
 	
 	/**
-	 * Checks whether the contents of the section are equal to those
-	 * of another section o.
+	 * Checks whether the contents of the part are equal to those
+	 * of another part o.
 	 * 
-	 * @param o CodeSection to compare to
+	 * @param o CodePart to compare to
 	 * @return true if contents are equal, false otherwise
 	 */
-	public boolean contentsEqualTo(CodeSection o) {
+	public boolean contentsEqualTo(CodePart o) {
 		// TODO Possible performance improvement: compute and store hash 
 		// when creating object, then compare hashes before the detailed comparison.
 		return Arrays.equals(_bytes, o._bytes);
@@ -176,12 +178,12 @@ public class CodeSection implements Comparable<CodeSection> {
 	
 	/**
 	 * Checks whether a {@link page} whose contents are equal to those of o is
-	 * contained within the section.
+	 * contained within the part.
 	 * 
 	 * @param o {@link Page} to be searched for
-	 * @return true if an identical page is contained in the section, false otherwise
+	 * @return true if an identical page is contained in the part, false otherwise
 	 */
-	public boolean pageContentIsInSection(Page o) {
+	public boolean pageContentIsInPart(Page o) {
 		Page[] pages = getPages(o.getPageSize());
 		for(Page p : pages) {
 			if(p.contentsEqualTo(o)) {
@@ -193,30 +195,30 @@ public class CodeSection implements Comparable<CodeSection> {
 	}
 
 	@Override
-	public int compareTo(CodeSection o) {
+	public int compareTo(CodePart o) {
 		if(!(_swVersion.equals(o._swVersion))) {
 			return _swVersion.compareTo(o._swVersion);
 		} else {
-			return _sectionName.compareTo(o._sectionName);
+			return _partName.compareTo(o._partName);
 		}
 	}
 
 	/**
-	 * This method will consider CodeSections associated to a SoftwareVersion with an
-	 * identical section name to be identical, even if the section content is different!
-	 * If you wish to compare the section contents, use {@link #contentsEqualTo(CodeSection)}
+	 * This method will consider CodeParts associated to a SoftwareVersion with an
+	 * identical part name to be identical, even if the part content is different.
+	 * If you wish to compare the part contents, use {@link #contentsEqualTo(CodePart)}
 	 * instead or in addition. 
 	 */
 	@Override
 	public boolean equals(Object obj) {
-		if(!(obj instanceof CodeSection)) {
+		if(!(obj instanceof CodePart)) {
 			return false;
 		} else {
-			CodeSection o = (CodeSection)obj;
+			CodePart o = (CodePart)obj;
 			if(!(_swVersion.equals(o._swVersion))) {
 				return false;
 			} else {
-				return _sectionName.equals(o._sectionName);
+				return _partName.equals(o._partName);
 			}
 		}
 	}

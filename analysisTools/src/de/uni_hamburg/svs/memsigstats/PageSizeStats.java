@@ -19,7 +19,7 @@ import org.apache.commons.lang3.ArrayUtils;
 
 /**
  * This class can create statistics on the potential for memory
- * dedupplication at different page sizes. It supports calculation
+ * deduplication at different page sizes. It supports calculation
  * of separate statistics based on how much sharing potential a
  * {@link SoftwareVersion} exhibits at the base page size.
  * As input, it requires statistics about the individual signatures
@@ -123,8 +123,8 @@ public class PageSizeStats {
 		double cmpSizeAvg = cmpPagesAvg * _cmpPS;
 		
 		System.out.println("pageSize;avg;avgLow;avgHigh;avgSize");
-		System.out.println("base;" + baseavg + ";" + baseLowAvg + ";" + baseHiAvg + ";" + baseSizeAvg);
-		System.out.println("cmp;" + cmpavg + ";" + cmpLowAvg + ";" + cmpHiAvg + ";" + cmpSizeAvg);
+		System.out.println(_basePS + ";" + baseavg + ";" + baseLowAvg + ";" + baseHiAvg + ";" + baseSizeAvg);
+		System.out.println(_cmpPS + ";" + cmpavg + ";" + cmpLowAvg + ";" + cmpHiAvg + ";" + cmpSizeAvg);
 	}
 	
 	/**
@@ -214,7 +214,9 @@ public class PageSizeStats {
 	}
 
 	/**
-	 * @param args
+	 * Main method that provided a CLI for the page size stat generation.
+	 * 
+	 * @param args CLI arguments
 	 */
 	public static void main(String[] args) {
 		Options opt = new Options();

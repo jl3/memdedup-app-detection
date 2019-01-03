@@ -29,6 +29,7 @@ public class Software implements Comparable<Software> {
 	private TreeSet<SoftwareVersion> _versions;
 	private File _swDir; // Directory containing subdirs for all versions of the software
 	private String _binaryName;
+	private int _pageSize;
 	
 	/**
 	 * Creates a new Software object.
@@ -37,10 +38,11 @@ public class Software implements Comparable<Software> {
 	 * @param swDir directory where software versions are stored
 	 * @param binaryName file name of the binary
 	 */
-	public Software(String name, File swDir, String binaryName) {
+	public Software(String name, File swDir, String binaryName, int pageSize) {
 		this._name = name;
 		this._swDir = swDir;
 		this._binaryName = binaryName;
+		this._pageSize = pageSize;
 		
 		initializeVersions();
 	}
@@ -66,7 +68,7 @@ public class Software implements Comparable<Software> {
 			if(!vdir.isDirectory()) continue;
 			
 			String vstring = vdir.getName();
-			SoftwareVersion sv = new SoftwareVersion(this, vstring, vdir);
+			SoftwareVersion sv = new SoftwareVersion(this, vstring, vdir, _pageSize);
 			this.addSoftwareVersion(sv);
 		}
 	}
@@ -126,14 +128,14 @@ public class Software implements Comparable<Software> {
 			return null;
 		}
 		
-		SortedSet<CodeSection> sections0 = sigVersions[0].getSections();
+		SortedSet<CodePart> parts0 = sigVersions[0].getParts();
 		
 		int all01count = 0;
 		int intDupCount = 0;
 		int notMatchingInGroupCount = 0;
 		
-		for(CodeSection sect : sections0) {
-			Page[] pages = sect.getPages(pageSize);
+		for(CodePart part : parts0) {
+			Page[] pages = part.getPages(pageSize);
 			for(Page p : pages) {
 				// Remove all-0 and all-1 pages as they are almost certain to trigger a false positive.
 				if(p.isAllOnes() || p.isAllZeroes()) {
@@ -220,10 +222,10 @@ public class Software implements Comparable<Software> {
 				if(svIsSigVersion) continue;
 				
 				// check whether an identical page is also in sv
-				Iterator<CodeSection> sectit = sv.getSections().iterator();
+				Iterator<CodePart> sectit = sv.getParts().iterator();
 				
 				while(sectit.hasNext()) {
-					CodeSection sect = sectit.next();
+					CodePart sect = sectit.next();
 					for(int i = 0; i < sect.numberOfPages(pageSize); i++) {
 						pageFound = sect.getPage(i, pageSize).contentsEqualTo(p);
 						if(pageFound) {

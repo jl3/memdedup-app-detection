@@ -4,13 +4,13 @@ import java.util.Arrays;
 import java.util.Objects;
 
 /**
- * This class models a memory page of a {@link CodeSection}.
+ * This class models a memory page of a {@link CodePart}.
  * 
  * @author Jens Lindemann
  */
 public class Page {
 	private byte[] _bytes;
-	private CodeSection _section;
+	private CodePart _part;
 	private long _pos;
 	
 	private boolean _all0Checked;
@@ -22,12 +22,12 @@ public class Page {
 	 * Creates a new Page object.
 	 * 
 	 * @param bytes contents of the Page
-	 * @param section {@link CodeSection} the Page belongs to
-	 * @param pos offset of the Page within the {@link CodeSection}
+	 * @param part {@link CodePart} the Page belongs to
+	 * @param pos offset of the Page within the {@link CodePart}
 	 */
-	public Page(byte[] bytes, CodeSection section, long pos) {
-		_bytes = bytes; // TODO could be retrieved from CodeSection to save memory
-		_section = section;
+	public Page(byte[] bytes, CodePart part, long pos) {
+		_bytes = bytes; // TODO This could be retrieved from CodePart to save memory.
+		_part = part;
 		_pos = pos;
 	}
 	
@@ -60,16 +60,16 @@ public class Page {
 	}
 	
 	/**
-	 * Returns the {@link CodeSection} the Page belongs to.
+	 * Returns the {@link CodePart} the Page belongs to.
 	 * 
-	 * @return the {@link CodeSection} the Page belongs to
+	 * @return the {@link CodePart} the Page belongs to
 	 */
-	public CodeSection getSection() {
-		return _section;
+	public CodePart getPart() {
+		return _part;
 	}
 	
 	/**
-	 * Returns the index of the Page within its {@link CodeSection}
+	 * Returns the index of the Page within its {@link CodePart}
 	 * 
 	 * @return index of the Page
 	 */
@@ -79,9 +79,9 @@ public class Page {
 	}
 	
 	/**
-	 * Returns the position of the Page within its {@link CodeSection}.
+	 * Returns the position of the Page within its {@link CodePart}.
 	 * 
-	 * @return position of the Page within its {@link CodeSection}
+	 * @return position of the Page within its {@link CodePart}
 	 */
 	public long getPos() {
 		return _pos;
@@ -128,7 +128,7 @@ public class Page {
 	}
 
 	/**
-	 * This method will consider a Page of equal size, code section and position therein to be equal.
+	 * This method will consider a Page of equal size, code part and position therein to be equal.
 	 * Contents will NOT be compared. If you wish to check for content equality, please use
 	 * {@link #contentsEqualTo(Page)} instead or in addition.
 	 */
@@ -139,7 +139,7 @@ public class Page {
 		}
 		
 		Page op = (Page)obj;
-		if((this._bytes.length == op._bytes.length) && (this._section.equals(op._section)) && (this._pos == op._pos)) {
+		if((this._bytes.length == op._bytes.length) && (this._part.equals(op._part)) && (this._pos == op._pos)) {
 			return true;
 		} else {
 			return false;
@@ -148,7 +148,7 @@ public class Page {
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(_section, _pos, _bytes.length);
+		return Objects.hash(_part, _pos, _bytes.length);
 	}
 	
 	

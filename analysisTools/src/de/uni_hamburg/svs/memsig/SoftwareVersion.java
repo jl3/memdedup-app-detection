@@ -19,7 +19,8 @@ public class SoftwareVersion implements Comparable<SoftwareVersion> {
 	private String _versionString;
 	private ComparableVersion _versionNo;
 	private File _path;
-	private TreeSet<CodeSection> _sections;
+	private TreeSet<CodePart> _parts;
+	private int _pageSize;
 	
 	/**
 	 * Creates a new SoftwareVersion object.
@@ -28,84 +29,88 @@ public class SoftwareVersion implements Comparable<SoftwareVersion> {
 	 * @param versionString String representation of the version number
 	 * @param path where the version is stored on the file system
 	 */
-	public SoftwareVersion(Software software, String versionString, File path) {
+	public SoftwareVersion(Software software, String versionString, File path, int pageSize) {
 		_software = software;
 		_versionString = versionString;
 		_versionNo = new ComparableVersion(versionString);
 		_path = path;
+		_pageSize = pageSize;
 		
-		initializeSections();
+		initializeParts();
 	}
 	
 	/**
-	 * Reads the sections of the binary from the file system.
+	 * Reads the parts of the binary (i.e. loadable segments for ELF binaries)
+	 * from the file system.
 	 */
-	private void initializeSections() {
-		_sections = new TreeSet<CodeSection>();
+	private void initializeParts() {
+		_parts = new TreeSet<CodePart>();
 		
-		File sectionsDir = new File(_path, "sections");
+		String pdirname = "parts-" + _pageSize;
+		File partsDir = new File(_path, pdirname);
 		
-		// If the sections containing program bits have not previously
+		// If the loadable segments have not previously
 		// been extracted into separate files, do it now.
-		if(!sectionsDir.exists()) {
-			initializeSectionsDir(sectionsDir);
+		if(!partsDir.exists()) {
+			initializePartsDir(partsDir);
 		}
 		
-		// Read the sections from the section files
-		File[] secFiles = sectionsDir.listFiles();
-		for(File secFile : secFiles) {
-			String secName = secFile.getName();
-			CodeSection sec = new CodeSection(this, secName, secFile);
-			this.addSection(sec);
+		// Read the segments from files
+		File[] partFiles = partsDir.listFiles();
+		for(File partFile : partFiles) {
+			String partName = partFile.getName();
+			CodePart sec = new CodePart(this, partName, partFile);
+			this.addPart(sec);
 		}
 	}
 	
 	/**
-	 * Extracts the sections containing program bits into
-	 * individual files within a subdirectory of the version's directory.
+	 * Extracts the parts of the binary (i.e. loadable segments for ELF
+	 * binaries) into individual files within a subdirectory of the version's
+	 * directory.
 	 * 
-	 * @param sectionsDir
+	 * @param partsDir directory to store code part files
 	 */
-	private void initializeSectionsDir(File sectionsDir) {
+	private void initializePartsDir(File partsDir) {
 		File bin = new File(_path, _software.getBinaryName());
 		if(!bin.exists()) {
 			System.err.println("Error: Could not find binary " + bin.getAbsolutePath());
 			System.exit(1);
 		}
 		
-		sectionsDir.mkdir();
-		SectionExtractor se = new SectionExtractor(bin);
-		se.split(sectionsDir, false, true);
+		partsDir.mkdir();
+		ELFSegmentExtractor se = new ELFSegmentExtractor(bin, _pageSize);
+		se.split(partsDir, false, true);
 	}
 	
 	/**
-	 * Adds a {@link CodeSection}.
+	 * Adds a {@link CodePart}.
 	 * 
-	 * @param sec {@link CodeSection} to be added
+	 * @param sec {@link CodePart} to be added
 	 */
-	private void addSection(CodeSection sec) {
-		_sections.add(sec);
+	private void addPart(CodePart sec) {
+		_parts.add(sec);
 	}
 	
 	/**
-	 * Returns the sections of the version.
+	 * Returns the parts of the version.
 	 * 
-	 * @return sections of the version
+	 * @return parts of the version
 	 */
-	public SortedSet<CodeSection> getSections() {
-		return Collections.unmodifiableSortedSet(_sections);
+	public SortedSet<CodePart> getParts() {
+		return Collections.unmodifiableSortedSet(_parts);
 	}
 	
 	/**
-	 * Checke whether a {@link Page} identical in contents to a specified
+	 * Checks whether a {@link Page} identical in contents to a specified
 	 * Page is also present in this version.
 	 * 
 	 * @param o {@link Page} to search for
 	 * @return true if an identical Page is contained in the version, false otherwise
 	 */
 	public boolean containsPageContent(Page o) {
-		for(CodeSection s : _sections) {
-			if(s.pageContentIsInSection(o)) {
+		for(CodePart s : _parts) {
+			if(s.pageContentIsInPart(o)) {
 				return true;
 			}
 		}
@@ -140,7 +145,7 @@ public class SoftwareVersion implements Comparable<SoftwareVersion> {
 		ArrayList<Page> internalDups = new ArrayList<Page>();
 		
 		// look for internal duplicates
-		for(CodeSection s : _sections) {
+		for(CodePart s : _parts) {
 			for(int i = 0; i < s.numberOfPages(pageSize); i++) {
 				if(pageHasInternalDuplicate(s.getPage(i, pageSize))) {
 					internalDups.add(s.getPage(i, pageSize));
@@ -149,17 +154,17 @@ public class SoftwareVersion implements Comparable<SoftwareVersion> {
 		}
 		
 		// Check whether a page is also contained in cmpVersion or not
-		for(CodeSection s : _sections) {
+		for(CodePart s : _parts) {
 			for(int i = 0; i < s.numberOfPages(pageSize); i++) {
 				Page p = s.getPage(i, pageSize);
-				if(!internalDups.contains(p)) {
+				// if(!internalDups.contains(p)) { -- not necessary here as this only makes describing the presented data more complicated...
 					boolean pageFound = cmpVersion.containsPageContent(p);
 					if(pageFound) {
 						matches++;
 					} else {
 						unique++;
 					}
-				}
+				// }
 			}
 		}
 		
@@ -174,10 +179,10 @@ public class SoftwareVersion implements Comparable<SoftwareVersion> {
 	 * @return true if an internal duplicate exists, false otherwise
 	 */
 	private boolean pageHasInternalDuplicate(Page p) {
-		for(CodeSection s : _sections) {
+		for(CodePart s : _parts) {
 			for(int i = 0; i < s.numberOfPages(p.getPageSize()); i++) {
 				Page op = s.getPage(i, p.getPageSize());
-				if(!(p.getSection().equals(s) && (p.getPos() == op.getPos()))) {
+				if(!(p.getPart().equals(s) && (p.getPos() == op.getPos()))) {
 					if(p.contentsEqualTo(op)) {
 						return true;
 					}
@@ -205,10 +210,50 @@ public class SoftwareVersion implements Comparable<SoftwareVersion> {
 	 */
 	public int numberOfPages(int pageSize) {
 		int p = 0;
-		for(CodeSection s : getSections()) {
+		for(CodePart s : getParts()) {
 			p += s.numberOfPages(pageSize);
 		}
 		return p;
+	}
+	
+	/**
+	 * @return the number of parts (Linux: segments) the version consists of
+	 */
+	public int numberOfParts() {
+		return _parts.size();
+	}
+	
+	/**
+	 * Returns all pages useable in signatures, i.\,e. all pages of the version
+	 * excluding internal duplicates pages containing only zero or one bits.
+	 * 
+	 * @param pageSize page size
+	 * @return pages useable in signatures
+	 */
+	public Page[] getUseablePages(int pageSize) {
+		// TODO implement
+		ArrayList<Page> pgs = new ArrayList<Page>();
+		
+		for(CodePart s : _parts) {
+			outerloop:
+			for(int i = 0; i < s.numberOfPages(pageSize); i++) {
+				Page p = s.getPage(i, pageSize);
+				
+				if(p.isAllZeroes() || p.isAllOnes()) {
+					continue;
+				}
+				
+				for(Page pcmp : pgs) {
+					if(p.contentsEqualTo(pcmp)) {
+						continue outerloop;
+					}
+				}
+				
+				pgs.add(p);
+			}
+		}
+		
+		return pgs.toArray(new Page[0]);
 	}
 
 	/**
@@ -235,8 +280,8 @@ public class SoftwareVersion implements Comparable<SoftwareVersion> {
 		if(!(_software.equals(o._software))) {
 			return _software.compareTo(o._software);
 		} else {
-			// TODO BUG: 2.4.10 should be > than 2.4.4...
-			//return _versionString.compareTo(o._versionString);
+			// TODO This compares character for character, i.e. 2.4.10<2.4.4.
+			// Could be changed to take canonical ordering into account.
 			return _versionNo.compareTo(o._versionNo);
 		}
 	}

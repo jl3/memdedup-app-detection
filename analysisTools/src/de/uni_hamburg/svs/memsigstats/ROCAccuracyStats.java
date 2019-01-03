@@ -1,6 +1,7 @@
 package de.uni_hamburg.svs.memsigstats;
 
 import java.io.BufferedReader;
+
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -28,34 +29,67 @@ import org.apache.commons.lang3.ArrayUtils;
  * 
  * @author Jens Lindemann
  */
-public class ROCAccuracyStats {
-	private int[][] _nondd;
-	private int[][] _dd;
-	private int[] _numPages;
+public class ROCAccuracyStats extends AccuracyStats {
 	double[] _limit;
 	
 	/**
 	 * Creates a new AccuracyStats instance and calculates the accuracy statistics, cf.
-	 * @see #AccuracyStats(int[], File[], File[], int, int[]).
+	 * @see #ROCAccuracyStats(int[], File[], File[], int, int[]). This constructor
+	 * uses the same dataset for training and testing.
 	 * 
 	 * @param numPages how many pages were contained in the signatures used for the measurements
 	 * @param ddfstr name of the @{link File}s containing the measurements for the fully deduplicated case
 	 * @param nonddfstr name of the Files containing the measurements for the non-deduplicated case
 	 * @param numSets how many sets of measurements are to be sampled for each configuration 
 	 * @param numMeasurements the size of the sample sets
+	 * @param numDataPoints number of data points to generate for the ROC curve
+	 * @param outputdir output directory for statistics
 	 */
 	public ROCAccuracyStats(int[] numPages, String[] ddfstr, String[] nonddfstr, int numSets, int[] numMeasurements, int numDataPoints, File outputdir) {
-		File[] ddf = new File[ddfstr.length];
-		for(int i = 0; i < ddf.length; i++) {
-			ddf[i] = new File(ddfstr[i]);
-		}
-		
-		File nonddf[] = new File[nonddfstr.length];
-		for(int i = 0; i < nonddfstr.length; i++) {
-			nonddf[i] = new File(nonddfstr[i]);
-		}
+		File[] ddf = initFileArray(ddfstr);
+		File nonddf[] = initFileArray(nonddfstr);
 		
 		new ROCAccuracyStats(numPages, ddf, nonddf, numSets, numMeasurements, numDataPoints, outputdir);
+	}
+	
+	/**
+	 * Creates a new AccuracyStats instance and calculates the accuracy statistics, cf.
+	 * @see #ROCAccuracyStats(int[], File[], File[], int, int[]). This constructor
+	 * uses the same dataset for training and testing.
+	 * 
+	 * @param numPages how many pages were contained in the signatures used for the measurements
+	 * @param ddf @{link File}s containing the measurements for the fully deduplicated case
+	 * @param nonddf @{link File}s containing the measurements for the non-deduplicated case
+	 * @param numSets how many sets of measurements are to be sampled for each configuration
+	 * @param numMeasurements the size of the sample sets
+	 * @param numDataPoints number of data points to generate for the ROC curve
+	 * @param outputdir output directory for statistics
+	 */
+	public ROCAccuracyStats(int[] numPages, File[] ddf, File[] nonddf, int numSets, int[] numMeasurements, int numDataPoints, File outputdir) {
+		new ROCAccuracyStats(numPages, ddf, nonddf, null, null, numSets, numMeasurements, numDataPoints, outputdir);
+	}
+	
+	/**
+	 * Creates a new AccuracyStats instance and calculates the accuracy statistics, cf.
+	 * @see #ROCAccuracyStats(int[], File[], File[], int, int[]).
+	 * 
+	 * @param numPages how many pages were contained in the signatures used for the measurements
+	 * @param ddfTrainStr name of the @{link File}s containing the training measurements for the fully deduplicated case
+	 * @param nonddfTrainStr name of the @{link File}s containing the training measurements for the non-deduplicated case
+	 * @param ddfTestStr name of the @{link File}s containing the test measurements for the fully deduplicated case
+	 * @param nonddfTestStr name of the @{link File}s containing the test measurements for the non-deduplicated case
+	 * @param numSets how many sets of measurements are to be sampled for each configuration
+	 * @param numMeasurements the size of the sample sets
+	 * @param numDataPoints number of data points to generate for the ROC curve
+	 * @param outputdir output directory for statistics
+	 */
+	public ROCAccuracyStats(int[] numPages, String[] ddfTrainStr, String[] nonddfTrainStr, String[] ddfTestStr, String[] nonddfTestStr, int numSets, int[] numMeasurements, int numDataPoints, File outputdir) {
+		File[] ddfTrain = initFileArray(ddfTrainStr);
+		File[] nonddfTrain = initFileArray(nonddfTrainStr);
+		File[] ddfTest = initFileArray(ddfTestStr);
+		File[] nonddfTest = initFileArray(nonddfTestStr);
+		
+		new ROCAccuracyStats(numPages, ddfTrain, nonddfTrain, ddfTest, nonddfTest, numSets, numMeasurements, numDataPoints, outputdir);
 	}
 	
 	/**
@@ -73,19 +107,21 @@ public class ROCAccuracyStats {
 	 * of the deduplicated and non-deduplicated measurements).
 	 * 
 	 * @param numPages how many pages were contained in the signatures used for the measurements
-	 * @param ddf @{link File}s containing the measurements for the fully deduplicated case
-	 * @param nonddf Files containing the measurements for the non-deduplicated case
+	 * @param ddfTrain @{link File}s containing the training measurements for the fully deduplicated case
+	 * @param nonddfTrain Files containing the training measurements for the non-deduplicated case
+	 * @param ddfTest Files containing the test measurements for the fully deduplicated case
+	 * @param nonddfTest Files containing the test measurements for the non-deduplicated case
 	 * @param numSets how many sets of measurements are to be sampled for each configuration 
 	 * @param numMeasurements the size of the sample sets
+	 * @param numDataPoints number of data points to generate for the ROC curve
+	 * @param outputdir output directory for statistics
 	 */
-	public ROCAccuracyStats(int[] numPages, File[] ddf, File[] nonddf, int numSets, int[] numMeasurements, int numDataPoints, File outputdir) {
+	public ROCAccuracyStats(int[] numPages, File[] ddfTrain, File[] nonddfTrain, File[] ddfTest, File[] nonddfTest, int numSets, int[] numMeasurements, int numDataPoints, File outputdir) {
 		try {
 			_numPages = numPages;
 			_limit = new double[_numPages.length];
-			_dd = new int[_numPages.length][];
-			_nondd = new int[_numPages.length][];
 			
-			initArrays(ddf, nonddf);
+			initArrays(ddfTrain, nonddfTrain);
 			
 			File optFile = new File(outputdir, "opt.csv");
 			FileOutputStream optOS = new FileOutputStream(optFile);
@@ -105,9 +141,11 @@ public class ROCAccuracyStats {
 				
 				avgWriter.print(numMeasurements[i]);
 			}
-			// TODO Write stats to file
 			
-			// TODO for each set (dd, nondd) and each num measurements:
+			// create array for storing optimal limit for each signature size
+			double[][] optLimits = new double[_numPages.length][numMeasurements.length];
+			
+			// For each set (dd, nondd) and each num measurements:
 			// 			generate numSets results (mean of sampled measurements)
 			//			limits for ROC generation: min: mean of nondd; max: mean of dd?
 			//			generate ROC: 100-200(?) data points between min and max
@@ -125,7 +163,7 @@ public class ROCAccuracyStats {
 					rocMax += 2*(rocMax-rocMin); // triple the interval to generate the lower end of the ROC curve...
 					
 	
-					// TODO generate ROC data points
+					// generate ROC data points
 					double[] limits = new double[numDataPoints];
 					int[] correctDD = new int[numDataPoints];
 					int[] correctNonDD = new int[numDataPoints];
@@ -157,6 +195,7 @@ public class ROCAccuracyStats {
 							optDP = k;
 						}
 					}
+					optLimits[i][j] = limits[optDP];
 					
 					// output to file
 					String filename = _numPages[i] + "p-" + numMeasurements[j] + "m.csv";
@@ -183,12 +222,11 @@ public class ROCAccuracyStats {
 						double correctPercNonDD = (double)correctNonDD[k] / numSets * 100;
 						double correctPercComb = ((double)correctDD[k]+correctNonDD[k]) / (numSets*2) * 100;
 						outWriter.write(correctPercDD + ";" + correctPercNonDD + ";" + correctPercComb);
-						
 					}
 					
 					outWriter.close();
 					outOS.close();
-					}
+				}
 			}
 			
 			optWriter.close();
@@ -196,6 +234,86 @@ public class ROCAccuracyStats {
 			
 			avgWriter.close();
 			avgOS.close();
+			
+			if(!((ddfTest == null) || (nonddfTest == null))) {
+				// Load test measurements if there is a separate test set
+				int[][] ddTest = initArray(ddfTest);
+				int[][] nonddTest = initArray(nonddfTest);
+				
+				// file for detailed stats
+				File optTestFile = new File(outputdir, "opt-test.csv");
+				FileOutputStream optTestOS = new FileOutputStream(optTestFile);
+				PrintWriter optTestWriter = new PrintWriter(optTestOS);
+				// header
+				optTestWriter.write("numPages;numMeasurements;limit;numSets;ddCorrect;nonDDCorrect;totalCorrect;DDPerc;NonDDPerc;TotalPerc"); // TODO write to file
+				
+				// file for avg stats
+				File avgTestFile = new File(outputdir, "opt-test-avg.csv");
+				FileOutputStream avgTestOS = new FileOutputStream(avgTestFile);
+				PrintWriter avgTestWriter = new PrintWriter(avgTestOS);
+				// header
+				avgTestWriter.print("numPages;");
+				for(int i = 0; i < numMeasurements.length; i++) {
+					if(i != 0) {
+						avgTestWriter.print(";");
+					}
+					avgTestWriter.print(numMeasurements[i]);
+				}
+				
+				// calculate stats on test set
+				for(int i = 0; i < _numPages.length; i++) {
+					avgTestWriter.write("\n" + Integer.toString(_numPages[i]));
+
+					for(int j = 0; j < numMeasurements.length; j++) {
+						// Get sorted arrays of samples.
+						double[] ddTestSetMeans = calculateSampleSetMeans(_dd[i], numMeasurements[j], numSets);
+						double[] nonddTestSetMeans = calculateSampleSetMeans(_nondd[i], numMeasurements[j], numSets);
+						
+						// determine number of correct deduplicated classifications
+						int correctTestDD = 0;
+						for(int k = 0; k < ddTestSetMeans.length; k++) {
+							if(ddTestSetMeans[k] > optLimits[i][j]) {
+								correctTestDD++;
+							}
+						}
+						
+						// determine number of correct non-deduplicated classifications
+						int correctTestNonDD = 0;
+						for(int k = 0; k < nonddTestSetMeans.length; k++) {
+							if(nonddTestSetMeans[k] <= optLimits[i][j]) {
+								correctTestNonDD++;
+							}
+						}
+						
+						int totalCorrect = correctTestDD + correctTestNonDD;
+						
+						// calculate percentages
+						double corrDDTestPerc = (double)correctTestDD / numSets * 100;
+						double corrNonDDTestPerc = (double)correctTestNonDD / numSets * 100;
+						double corrTotalPerc = (double)totalCorrect / (numSets*2) * 100;
+						
+						// write stats to files
+						avgTestWriter.write(";" + corrTotalPerc);
+						String out = "\n" + Integer.toString(_numPages[i]);
+						out += ";" + numMeasurements[j];
+						out += ";" + optLimits[i][j];
+						out += ";" + numSets;
+						out += ";" + correctTestDD;
+						out += ";" + correctTestNonDD;
+						out += ";" + totalCorrect;
+						out += ";" + corrDDTestPerc;
+						out += ";" + corrNonDDTestPerc;
+						out += ";" + corrTotalPerc;
+						optTestWriter.write(out);
+						System.out.println(out);
+					}
+				}
+				
+				optTestWriter.close();
+				optTestOS.close();
+				avgTestWriter.close();
+				avgTestOS.close();
+			}
 		} catch (FileNotFoundException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -206,7 +324,9 @@ public class ROCAccuracyStats {
 	}
 	
 	/**
-	 * TODO
+	 * Generates the a number of sample sets by bootstrap-resample from
+	 * the provided set of measurements and returns the mean of the sample
+	 * set. The size of the sample sets can be specified.
 	 * 
 	 * @param m the measurements
 	 * @param setSize the size of the sample sets
@@ -253,46 +373,6 @@ public class ROCAccuracyStats {
 		double avg = (double)sum / a.length;
 		return avg;
 	}
-	
-	/**
-	 * Reads the measurements from the files and initializes the arrays.
-	 * 
-	 * @param ddf @{link File}s containing the measurements for the fully deduplicated case
-	 * @param nonddf Files containing the measurements for the non-deduplicated case
-	 */
-	private void initArrays(File[] ddf, File[] nonddf) {
-		try {
-			for(int i = 0; i < _numPages.length; i++) {
-				BufferedReader ddr = new BufferedReader(new FileReader(ddf[i]));
-				ArrayList<Integer> ddal = new ArrayList<Integer>();
-				String ddline;
-				while((ddline = ddr.readLine()) != null) {
-					Integer v = new Integer(ddline);
-					ddal.add(v);
-				}
-				_dd[i] = ArrayUtils.toPrimitive((Integer[])ddal.toArray(new Integer[0]));
-				ddr.close();
-				
-				BufferedReader nonddr = new BufferedReader(new FileReader(nonddf[i]));
-				ArrayList<Integer> nonddal = new ArrayList<Integer>();
-				String nonddline;
-				while((nonddline = nonddr.readLine()) != null) {
-					Integer v = new Integer(nonddline);
-					nonddal.add(v);
-				}
-				_nondd[i] = ArrayUtils.toPrimitive((Integer[])nonddal.toArray(new Integer[0]));
-				nonddr.close();
-			}
-		} catch (FileNotFoundException e) {
-			System.err.println("Error: Could not find file " + e.getMessage());
-			e.printStackTrace();
-			System.exit(1);
-		} catch (IOException e) {
-			System.err.println("I/O Error " + e.getMessage());
-			e.printStackTrace();
-			System.exit(1);
-		}
-	}
 
 	/**
 	 * @param args CLI arguments
@@ -313,7 +393,7 @@ public class ROCAccuracyStats {
 				.hasArg()
 				.argName("nonddfile")
 				.required()
-				.desc("file containing stats for non-dedup case")
+				.desc("file containing stats for non-dedup case (training set, if separate sets are used)")
 				.build();
 		
 		Option ddFileOpt = Option.builder("d")
@@ -321,7 +401,23 @@ public class ROCAccuracyStats {
 				.hasArg()
 				.argName("ddfile")
 				.required()
-				.desc("file containing stats for dedup case")
+				.desc("file containing stats for dedup case (training set, if separate sets are used)")
+				.build();
+		
+		Option nonddTestFileOpt = Option.builder("nt")
+				.longOpt("nonddtest")
+				.hasArg()
+				.argName("nonddtest")
+				.required()
+				.desc("file containing stats for non-dedup case (test set, if separate sets are used)")
+				.build();
+		
+		Option ddTestFileOpt = Option.builder("dt")
+				.longOpt("ddtest")
+				.hasArg()
+				.argName("ddtest")
+				.required()
+				.desc("file containing stats for dedup case (test set, if separate sets are used)")
 				.build();
 		
 		Option numMeasurementsOpt = Option.builder("m")
@@ -362,6 +458,8 @@ public class ROCAccuracyStats {
 		opt.addOption(pagesOpt);
 		opt.addOption(nonddFileOpt);
 		opt.addOption(ddFileOpt);
+		opt.addOption(nonddTestFileOpt);
+		opt.addOption(ddTestFileOpt);
 		opt.addOption(numMeasurementsOpt);
 		opt.addOption(helpOpt);
 		opt.addOption(outputPathOpt);
@@ -398,6 +496,16 @@ public class ROCAccuracyStats {
 			System.exit(1);
 		}
 		
+		String[] nonddfteststr = cmd.getOptionValues(nonddTestFileOpt.getOpt());
+		String[] ddfteststr = cmd.getOptionValues(ddTestFileOpt.getOpt());
+		if(!((nonddfteststr == null) && (ddfteststr == null))) {
+			if((nonddfteststr == null) || (ddfteststr == null) 
+					|| (pagesStr.length != nonddfteststr.length) || (pagesStr.length != ddfteststr.length)) {
+				System.err.println("Error: Number of -p, -n, -d, -ntest, -dtest arguments does not match.");
+				System.exit(1);
+			}
+		}
+		
 		String numSetsStr = cmd.getOptionValue(setsOpt.getOpt());
 		int numSets = new Integer(numSetsStr);
 		
@@ -424,7 +532,11 @@ public class ROCAccuracyStats {
 			}
 		}
 		
-		new ROCAccuracyStats(numPages, ddfstr, nonddfstr, numSets, measurementsIntArray, numDataPoints, outputdir);
+		if(nonddfteststr == null) {
+			new ROCAccuracyStats(numPages, ddfstr, nonddfstr, numSets, measurementsIntArray, numDataPoints, outputdir);
+		} else {
+			new ROCAccuracyStats(numPages, ddfstr, nonddfstr, ddfteststr, nonddfteststr, numSets, measurementsIntArray, numDataPoints, outputdir);
+		}
 	}
 	
 	/**

@@ -118,4 +118,13 @@ public class SoftwareVersionGroup {
 	public void addVersion(SoftwareVersion sv) {
 		_versions.add(sv);
 	}
+	
+	/**
+	 * Returns the number of versions in the group.
+	 * 
+	 * @return number of versions in group
+	 */
+	public int size() {
+		return _versions.size();
+	}
 }

@@ -12,7 +12,7 @@ import java.util.ArrayList;
  * @author Jens Lindemann
  */
 public class VersionSignature implements Comparable<VersionSignature> {
-	private SoftwareVersion[] _versions; // contents need to be ordered
+	private SoftwareVersion[] _versions; // TODO might be better to put this in a Set. OR need to specify that this needs to be ordered
 	private int _pageSize;
 	private ArrayList<Page> _pages;
 	private int _all01count;
@@ -41,10 +41,10 @@ public class VersionSignature implements Comparable<VersionSignature> {
 	 * Adds a new {@link Page} to the signature.
 	 * 
 	 * @param pageBytes contents of the Page
-	 * @param section {@link CodeSection} that the Page belongs to
-	 * @param pos offset of the Page within the CodeSection
+	 * @param section {@link CodePart} that the Page belongs to
+	 * @param pos offset of the Page within the CodePart
 	 */
-	public void addPage(byte[] pageBytes, CodeSection section, long pos) {
+	public void addPage(byte[] pageBytes, CodePart section, long pos) {
 		Page page = new Page(pageBytes, section, pos);
 		addPage(page);
 	}

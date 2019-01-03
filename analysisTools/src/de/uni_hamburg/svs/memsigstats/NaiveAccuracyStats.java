@@ -27,10 +27,7 @@ import org.apache.commons.lang3.ArrayUtils;
  * 
  * @author Jens Lindemann
  */
-public class NaiveAccuracyStats {
-	private int[][] _nondd;
-	private int[][] _dd;
-	private int[] _numPages;
+public class NaiveAccuracyStats extends AccuracyStats {
 	double[] _limit;
 	
 	/**
@@ -42,19 +39,50 @@ public class NaiveAccuracyStats {
 	 * @param nonddfstr name of the Files containing the measurements for the non-deduplicated case
 	 * @param numSets how many sets of measurements are to be sampled for each configuration 
 	 * @param numMeasurements the size of the sample sets
+	 * @param outputdir output directory for statistics
 	 */
 	public NaiveAccuracyStats(int[] numPages, String[] ddfstr, String[] nonddfstr, int numSets, int[] numMeasurements, File outputdir) {
-		File[] ddf = new File[ddfstr.length];
-		for(int i = 0; i < ddf.length; i++) {
-			ddf[i] = new File(ddfstr[i]);
-		}
-		
-		File nonddf[] = new File[nonddfstr.length];
-		for(int i = 0; i < nonddfstr.length; i++) {
-			nonddf[i] = new File(nonddfstr[i]);
-		}
+		File[] ddf = initFileArray(ddfstr);
+		File nonddf[] = initFileArray(nonddfstr);
 		
 		new NaiveAccuracyStats(numPages, ddf, nonddf, numSets, numMeasurements, outputdir);
+	}
+	
+	/**
+	 * Creates a new AccuracyStats instance and calculates the accuracy statistics, cf.
+	 * @see #AccuracyStats(int[], File[], File[], File[], File[], int, int[], File).
+	 * 
+	 * @param numPages how many pages were contained in the signatures used for the measurements
+	 * @param ddf @{link File}s containing the measurements for the fully deduplicated case
+	 * @param nonddf Files containing the measurements for the non-deduplicated case
+	 * @param numSets how many sets of measurements are to be sampled for each configuration 
+	 * @param numMeasurements the size of the sample sets
+	 * @param outputdir output directory for statistics
+	 */
+	public NaiveAccuracyStats(int[] numPages, File[] ddf, File[] nonddf, int numSets, int[] numMeasurements, File outputdir) {
+		new NaiveAccuracyStats(numPages, ddf, nonddf, null, null, numSets, numMeasurements, outputdir);
+	}
+	
+	/**
+	 * Creates a new AccuracyStats instance and calculates the accuracy statistics, cf.
+	 * @see #AccuracyStats(int[], File[], File[], File[], File[], int, int[], File).
+	 * 
+	 * @param numPages how many pages were contained in the signatures used for the measurements
+	 * @param ddfTrainStr names of the @{link File}s containing the training measurements for the fully deduplicated case
+	 * @param nonddfTrainStr names of the files containing the training measurements for the non-deduplicated case
+	 * @param ddfTest names of the files containing the test measurements for the fully deduplicated case
+	 * @param nonddfTest names of the files containing the test measurements for the non-deduplicated case
+	 * @param numSets how many sets of measurements are to be sampled for each configuration 
+	 * @param numMeasurements the size of the sample sets
+	 * @param outputdir output directory for statistics
+	 */
+	public NaiveAccuracyStats(int[] numPages, String[] ddfTrainStr, String[] nonddfTrainStr, String[] ddfTestStr, String[] nonddfTestStr, int numSets, int[] numMeasurements, File outputdir) {
+		File[] ddfTrain = initFileArray(ddfTrainStr);
+		File[] nonddfTrain = initFileArray(nonddfTrainStr);
+		File[] ddfTest = initFileArray(ddfTestStr);
+		File[] nonddfTest = initFileArray(nonddfTestStr);
+		
+		new NaiveAccuracyStats(numPages, ddfTrain, nonddfTrain, ddfTest, nonddfTest, numSets, numMeasurements, outputdir);
 	}
 	
 	/**
@@ -72,19 +100,25 @@ public class NaiveAccuracyStats {
 	 * of the deduplicated and non-deduplicated measurements).
 	 * 
 	 * @param numPages how many pages were contained in the signatures used for the measurements
-	 * @param ddf @{link File}s containing the measurements for the fully deduplicated case
-	 * @param nonddf Files containing the measurements for the non-deduplicated case
+	 * @param ddfTrain @{link File}s containing the training measurements for the fully deduplicated case
+	 * @param nonddfTrain Files containing the training measurements for the non-deduplicated case
+	 * @param ddfTest Files containing the test measurements for the fully deduplicated case
+	 * @param nonddfTest Files containing the test measurements for the non-deduplicated case
 	 * @param numSets how many sets of measurements are to be sampled for each configuration 
 	 * @param numMeasurements the size of the sample sets
+	 * @param outputdir output directory for statistics
 	 */
-	public NaiveAccuracyStats(int[] numPages, File[] ddf, File[] nonddf, int numSets, int[] numMeasurements, File outputdir) {
+	public NaiveAccuracyStats(int[] numPages, File[] ddfTrain, File[] nonddfTrain, File[] ddfTest, File[] nonddfTest, int numSets, int[] numMeasurements, File outputdir) {
 		_numPages = numPages;
 		_limit = new double[_numPages.length];
-		_dd = new int[_numPages.length][];
-		_nondd = new int[_numPages.length][];
 		
-		initArrays(ddf, nonddf);
+		initArrays(ddfTrain, nonddfTrain);
 		findLimits();
+		
+		// re-initialise measurement arrays if we have a separate test set
+		if(!((ddfTest == null) || (nonddfTest == null))) {
+			initArrays(ddfTest, nonddfTest);
+		}
 		
 		// initialize results arrays
 		int[][] correctDD = new int[_numPages.length][numMeasurements.length];
@@ -115,7 +149,7 @@ public class NaiveAccuracyStats {
 		String numPagesLine = "numPages";
 		for(int i = 0; i < numMeasurements.length; i++) {
 			numPagesLine += ";";
-			numPagesLine += numMeasurements[i];
+			numPagesLine += numMeasurements[i] + " measurements";
 		}
 		System.out.println(numPagesLine);
 		
@@ -221,8 +255,6 @@ public class NaiveAccuracyStats {
 			// naive implementation: just take average of averages of dd- and non-dd baselines
 			_limit[i] = (ddavg + nonddavg) / 2;
 		}
-		
-
 	}
 	
 	/**
@@ -289,46 +321,8 @@ public class NaiveAccuracyStats {
 	}
 	
 	/**
-	 * Reads the measurements from the files and initializes the arrays.
+	 * Main method that provides a CLI for generating naive accuracy statistics.
 	 * 
-	 * @param ddf @{link File}s containing the measurements for the fully deduplicated case
-	 * @param nonddf Files containing the measurements for the non-deduplicated case
-	 */
-	private void initArrays(File[] ddf, File[] nonddf) {
-		try {
-			for(int i = 0; i < _numPages.length; i++) {
-				BufferedReader ddr = new BufferedReader(new FileReader(ddf[i]));
-				ArrayList<Integer> ddal = new ArrayList<Integer>();
-				String ddline;
-				while((ddline = ddr.readLine()) != null) {
-					Integer v = new Integer(ddline);
-					ddal.add(v);
-				}
-				_dd[i] = ArrayUtils.toPrimitive((Integer[])ddal.toArray(new Integer[0]));
-				ddr.close();
-				
-				BufferedReader nonddr = new BufferedReader(new FileReader(nonddf[i]));
-				ArrayList<Integer> nonddal = new ArrayList<Integer>();
-				String nonddline;
-				while((nonddline = nonddr.readLine()) != null) {
-					Integer v = new Integer(nonddline);
-					nonddal.add(v);
-				}
-				_nondd[i] = ArrayUtils.toPrimitive((Integer[])nonddal.toArray(new Integer[0]));
-				nonddr.close();
-			}
-		} catch (FileNotFoundException e) {
-			System.err.println("Error: Could not find file " + e.getMessage());
-			e.printStackTrace();
-			System.exit(1);
-		} catch (IOException e) {
-			System.err.println("I/O Error " + e.getMessage());
-			e.printStackTrace();
-			System.exit(1);
-		}
-	}
-
-	/**
 	 * @param args CLI arguments
 	 */
 	public static void main(String[] args) {
@@ -347,7 +341,7 @@ public class NaiveAccuracyStats {
 				.hasArg()
 				.argName("nonddfile")
 				.required()
-				.desc("file containing stats for non-dedup case")
+				.desc("file containing stats for non-dedup case (training set, if separate sets are used)")
 				.build();
 		
 		Option ddFileOpt = Option.builder("d")
@@ -355,7 +349,23 @@ public class NaiveAccuracyStats {
 				.hasArg()
 				.argName("ddfile")
 				.required()
-				.desc("file containing stats for dedup case")
+				.desc("file containing stats for dedup case (training set, if separate sets are used)")
+				.build();
+		
+		Option nonddTestFileOpt = Option.builder("nt")
+				.longOpt("nonddtest")
+				.hasArg()
+				.argName("nonddtest")
+				.required()
+				.desc("file containing stats for non-dedup case (test set, if separate sets are used)")
+				.build();
+		
+		Option ddTestFileOpt = Option.builder("dt")
+				.longOpt("ddtest")
+				.hasArg()
+				.argName("ddtest")
+				.required()
+				.desc("file containing stats for dedup case (test set, if separate sets are used)")
 				.build();
 		
 		Option numMeasurementsOpt = Option.builder("m")
@@ -389,6 +399,8 @@ public class NaiveAccuracyStats {
 		opt.addOption(pagesOpt);
 		opt.addOption(nonddFileOpt);
 		opt.addOption(ddFileOpt);
+		opt.addOption(nonddTestFileOpt);
+		opt.addOption(ddTestFileOpt);
 		opt.addOption(numMeasurementsOpt);
 		opt.addOption(outputPathOpt);
 		opt.addOption(helpOpt);
@@ -424,6 +436,16 @@ public class NaiveAccuracyStats {
 			System.exit(1);
 		}
 		
+		String[] nonddfteststr = cmd.getOptionValues(nonddTestFileOpt.getOpt());
+		String[] ddfteststr = cmd.getOptionValues(ddTestFileOpt.getOpt());
+		if(!((nonddfteststr == null) && (ddfteststr == null))) {
+			if((nonddfteststr == null) || (ddfteststr == null) 
+					|| (pagesStr.length != nonddfteststr.length) || (pagesStr.length != ddfteststr.length)) {
+				System.err.println("Error: Number of -p, -n, -d, -ntest, -dtest arguments does not match.");
+				System.exit(1);
+			}
+		}
+		
 		String numSetsStr = cmd.getOptionValue(setsOpt.getOpt());
 		int numSets = new Integer(numSetsStr);
 		
@@ -439,11 +461,16 @@ public class NaiveAccuracyStats {
 		File outputdir = new File(outputPathStr);
 		outputdir.mkdir();
 		
-		new NaiveAccuracyStats(numPages, ddfstr, nonddfstr, numSets, measurementsIntArray, outputdir);
+		if(nonddfteststr == null) {
+			new NaiveAccuracyStats(numPages, ddfstr, nonddfstr, numSets, measurementsIntArray, outputdir);
+		} else {
+			new NaiveAccuracyStats(numPages, ddfstr, nonddfstr, ddfteststr, nonddfteststr, numSets, measurementsIntArray, outputdir);
+		}
 	}
 	
 	/**
 	 * Prints the help message containing information about the CLI options.
+	 * 
 	 * @param opt Options object containing CLI options.
 	 */
 	private static void printHelp(Options opt) {

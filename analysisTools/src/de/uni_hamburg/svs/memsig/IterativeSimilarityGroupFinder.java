@@ -56,6 +56,8 @@ public class IterativeSimilarityGroupFinder extends GroupFinder {
 		// TODO make VersionSignature Comparable...
 		//ArrayList<VersionSignature> sigset = new ArrayList<VersionSignature>();
 		
+		// Add all versions that are not candidates as 'groups' containing
+		// a single version.
 		for(int i = 0; i < _nonCands.length; i++) {
 			SoftwareVersion[] idvGroup = new SoftwareVersion[1];
 			idvGroup[0] = _idvSigs[_nonCands[i]].getSoftwareVersions()[0];
@@ -110,10 +112,16 @@ public class IterativeSimilarityGroupFinder extends GroupFinder {
 			while(sortedCandIt.hasNext()) {
 				int gaddidx = sortedCandIt.next();
 				int gaddsimilarity = candSimilarity.get(gaddidx);
-				if(((gaddidx - g0) > _maxDist) || (gaddsimilarity < bestSigsize)) {
+				
+				if((gaddidx - g0) > _maxDist) {
+					// We do not need to consider this version if it is further
+					// away from the first element of the group than specified
+					// by the maximum distance.
+					continue;
+				}
+				
+				if(gaddsimilarity < bestSigsize) {
 					break;
-					// We do not need to consider any other candidates, as all of them 
-					// will be too far away from the first element of the group.
 					// If there are fewer identical pages in the additional version
 					// than are contained in the best signature found so far, we can
 					// stop here, as adding further versions can only decrease signature
