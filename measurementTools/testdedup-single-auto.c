@@ -1,5 +1,7 @@
 /*
- * Reads file1 to a buffer. After the specified amount of time has passed, file1 is overwritten by file2. The time to complete the overwrite operation is measured and logged into a log file.
+ * Reads file1 to a buffer. After the specified amount of time has passed,
+ * file1 is overwritten by file2. The time to complete the overwrite
+ * operation is measured and logged into a log file.
  *
  * Author: Jens Lindemann
  */
@@ -48,22 +50,22 @@ int main(int argc, char **argv) {
 				break;
 			case '?':
 				// TODO error messages for improper use
-				return 1;
+				return 4;
 			default:
-				// TODO proper error handling
-				return 1;
+				// TODO error handling
+				return 5;
 		}
 	}
 
 	// Check for presence of parameters. Set defaults/print error.
 	if(!filename) {
 		fprintf(stderr, "Error: Argument -1 is required.");
-		return 1;
+		return 2;
 	}
 
 	if(!filename2) {
 		fprintf(stderr, "Error: Argument -2 is required.");
-		return 1;
+		return 3;
 	}
 
 	if(!logfilename) {
@@ -114,7 +116,7 @@ int main(int argc, char **argv) {
 					return 1;
 				}
 				
-				// TODO read file to tmp
+				// read file to tmp
 				char *tmp = NULL;
 				int maret = posix_memalign((void **)&tmp, sysconf(_SC_PAGESIZE), bufsize+offset);
 				if(maret!=0) {
@@ -125,11 +127,11 @@ int main(int argc, char **argv) {
 				if(tmpLen == 0) {
 					fputs("Error reading file 2", stderr);
 				}
-				char* srcPnt = tmp+offset; //TODO check
+				char* srcPnt = tmp+offset;
 
 				// get start time
 				clock_gettime(CLOCK_MONOTONIC, &starttime);
-				// TODO copy from tmp to filemem
+				// copy from tmp to filemem
 				memcpy((void*)filemem, (void*)srcPnt, bufsize);
 				// get end time
 				clock_gettime(CLOCK_MONOTONIC, &endtime);
@@ -160,7 +162,9 @@ int main(int argc, char **argv) {
 		fprintf(lfp, "%u\n", timeNeeded);
 		fclose(lfp);
 
-		memset(filemem, 0, bufsize); // Nullify source
+		// Overwrite source with zeroes to make sure that the data 
+		// does not come to haunt us later...
+		memset(filemem, 0, bufsize);
 		free(filemem);
 
 		return 0;
